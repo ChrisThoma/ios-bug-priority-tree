@@ -27,14 +27,24 @@ Most of this came out of watching runs go wrong: a verifier that spent 326 turns
 
 Both agents read the same `SKILL.md`; only the directory differs. Global installs are shown here, but per-project `.claude/skills/` and `.codex/skills/` work the same way.
 
-```bash
-git clone https://github.com/ChrisThoma/ios-bug-priority-tree.git
+One line per host, no clone and no git history, using [degit](https://github.com/Rich-Harris/degit) to pull just the skill folder:
 
+```bash
 # Claude Code
-cp -r ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.claude/skills/
+npx -y degit ChrisThoma/ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.claude/skills/ios-bug-priority-tree
 
 # Codex
-cp -r ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.codex/skills/
+npx -y degit ChrisThoma/ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.codex/skills/ios-bug-priority-tree
+```
+
+Add `--force` after `degit` to overwrite an existing copy when you update. For a project-local install, point it at `.claude/skills/ios-bug-priority-tree` or `.codex/skills/ios-bug-priority-tree` instead.
+
+Or clone and copy, if you would rather read the whole repo first:
+
+```bash
+git clone https://github.com/ChrisThoma/ios-bug-priority-tree.git
+cp -r ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.claude/skills/   # Claude Code
+cp -r ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.codex/skills/    # Codex
 ```
 
 It is picked up on the next session. Invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-priority-tree` in Codex. The `agents/openai.yaml` in the skill folder supplies Codex's display name and default prompt; Claude Code ignores it.
