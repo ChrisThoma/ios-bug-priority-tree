@@ -7,13 +7,25 @@ description: Finder tracks, severity ladder, and escalation tiers for an iOS bug
 
 Companion to a "find N distinct issues" iOS `/goal` protocol. Load this at hunt start, before the first finder wave — track assignment and the severity ladder apply from wave one. The escalation tiers apply later, when a track's wave runs dry.
 
+## Host setup (Claude Code and Codex)
+
+The skill is host-agnostic; both agents read the same `SKILL.md` frontmatter. Install it at `~/.claude/skills/ios-bug-priority-tree/` for Claude Code or `~/.codex/skills/ios-bug-priority-tree/` for Codex (per-project `.claude/skills/` and `.codex/skills/` work too).
+
+What the orchestrator needs on either host:
+
+- **A simulator-driving MCP server** exposing tap / describe / screenshot calls. The tool names quoted below (`ui_find_element`, `ui_describe_all`) are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s; substitute your own server's equivalents.
+- **Host tools on PATH:** `xcrun simctl` (Xcode command line tools), `ffmpeg` for the recording and frame-stepping steps, `sips` for downscaling, and `idb` for taps and timing.
+- **Subagents.** Claude Code spawns them with its Task/Agent tool. Codex needs the `multi_agent` feature on (`codex features list | grep multi_agent`); it is stable and on by default. Every wave gets fresh agents on either host.
+
+Where a rule below names a specific tool or model tier, it names the Claude Code and Codex forms together. Everything else applies unchanged.
+
 ## Agent budgets — include this block verbatim in every subagent prompt
 
 > **Budget.** Context cost grows with every turn you take — each turn re-reads your entire history, so a 300-turn session costs ~100× a 30-turn one, not 10×. Work within these caps and return early rather than push past them:
 > - **Finders:** return after **~30 simulator interactions or 3 candidate issues**, whichever comes first. If you cannot reach an assigned screen within 10 actions, record it as unreachable and move to the next area — do not keep retrying.
 > - **Verifiers:** the repro must complete in **≤15 simulator actions**. If it doesn't, return `BLOCKED: could not complete repro path` with what you tried — that is a valid verdict, not a failure.
-> - **Navigation:** use `ui_find_element` (or describe a point) to locate controls. A full `ui_describe_all` dump is allowed at most **once per new screen** — never after every tap.
-> - **Screenshots:** the screenshot tool writes a file; **downscale before viewing** (`sips -Z 750 <file>`) and **Read each image at most once** — a full-resolution screenshot re-Read into context is paid on every later turn. Take screenshots only when your track's method requires them or to capture final evidence; never as a general "where am I" check (use the tree for that).
+> - **Navigation:** use your simulator server's find-element call (`ui_find_element`, or describe a point) to locate controls. A full accessibility dump (`ui_describe_all`) is allowed at most **once per new screen** — never after every tap.
+> - **Screenshots:** the screenshot tool writes a file; **downscale before viewing** (`sips -Z 750 <file>`) and **view each image at most once** (`Read` in Claude Code, `view_image` in Codex) — a full-resolution screenshot pulled into context is paid again on every later turn. Take screenshots only when your track's method requires them or to capture final evidence; never as a general "where am I" check (use the tree for that).
 > - **One screenshot per verdict/finding** is the evidence ceiling for Tracks A and D and for all verifiers.
 > - **Report format:** your final report is a structured list — per finding/verdict: repro steps, expected vs actual, evidence, severity guess. **≤25 lines total.** Never narrate your process, dead ends, or turn-by-turn history; one line each for dead ends worth flagging. The orchestrator pays for every line you return on every one of its later turns.
 
@@ -49,7 +61,7 @@ Walk screens, forms, nav paths; check data correctness, error states, lost input
 
 ### Track B — Visual/design audit (simulator, screenshot driving)
 
-**Screenshots ARE the method for this track** — the explicit exception to the a11y-tree rule and to the one-screenshot evidence ceiling (the budget block's downscale-and-Read-once rule still applies: `sips -Z 750` before viewing, never re-Read). The finder navigates by tree but screenshots every distinct screen and *reads the pixels* against this rubric:
+**Screenshots ARE the method for this track** — the explicit exception to the a11y-tree rule and to the one-screenshot evidence ceiling (the budget block's downscale-and-view-once rule still applies: `sips -Z 750` before viewing, never view the same file twice). The finder navigates by tree but screenshots every distinct screen and *reads the pixels* against this rubric:
 
 - Tap targets ≥ 44pt; controls not overlapping or clipped.
 - Contrast: every piece of information legible against its actual background — especially error/status banners, placeholder text, disabled states.
@@ -91,7 +103,7 @@ Simulator apps are host processes, so host tools attach directly. Thresholds —
 
 With 2 simulators: **wave 1 = Track A on SIM-A, Track B on SIM-B, plus 1–2 Track C agents off-simulator.** Track D interleaves when a simulator frees up (verify phases are a natural gap). Never spawn an agent just to keep a simulator busy. If an SE-class device type is available, prefer it for one of the sims — smallest-screen layout is free coverage.
 
-**Every wave and every escalation tier gets a fresh agent.** Never continue a finder from a previous wave via SendMessage, and never run multiple ladder tiers inside one agent session — a long-lived agent re-pays its entire accumulated history (screenshots included) on every turn. Hand the fresh agent a ≤10-line summary of what prior waves found and which areas came up dry.
+**Every wave and every escalation tier gets a fresh agent.** Never continue a previous wave's finder by messaging it again, and never run multiple ladder tiers inside one agent session — a long-lived agent re-pays its entire accumulated history (screenshots included) on every turn. Hand the fresh agent a ≤10-line summary of what prior waves found and which areas came up dry.
 
 ## Escalation — per track, when a wave runs dry
 
@@ -173,7 +185,7 @@ Track C runs once; it re-runs only when new leads or new code (post-fix) exist. 
 
 ## Verification addendum — visual and perf fixes
 
-Verifiers never see the fix or diff, only the defect description + repro — and their prompt must explicitly FORBID reading the app's source code, diffs, or git history (otherwise they go find the fix themselves and rubber-stamp it, which happened in testing). Verifiers that drive a simulator run on **sonnet, not haiku** — in testing a haiku verifier flailed for 326 turns and 35 screenshots on a 5-step repro; fewer turns beats cheaper turns. Verifier prompts include the budget block's 15-action cap. All verifier evidence comes from driving the installed build. A verdict that cites source code instead of runtime observation is inadmissible: reject it and spawn a new verifier. Two track-specific requirements:
+Verifiers never see the fix or diff, only the defect description + repro — and their prompt must explicitly FORBID reading the app's source code, diffs, or git history (otherwise they go find the fix themselves and rubber-stamp it, which happened in testing). Verifiers that drive a simulator run on a **mid-tier model, not the cheapest one** (in Claude Code: sonnet rather than haiku; in Codex: leave reasoning effort at medium rather than dropping to minimal) — in testing a cheap verifier flailed for 326 turns and 35 screenshots on a 5-step repro; fewer turns beats cheaper turns. Verifier prompts include the budget block's 15-action cap. All verifier evidence comes from driving the installed build. A verdict that cites source code instead of runtime observation is inadmissible: reject it and spawn a new verifier. Two track-specific requirements:
 
 - **Track B fixes:** the verifier re-runs the scenario, takes a fresh screenshot, and its verdict must describe what the screenshot now shows at the defect's location (e.g., "the error banner is now white-on-red and legible"). "Looks fixed" without citing pixel-level content is not a verdict — send it back.
 - **Track D fixes:** the verifier re-runs the same measurement (same recordVideo/ffmpeg or leaks/footprint procedure, included in its prompt) and quotes before/after numbers against the threshold.

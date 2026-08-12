@@ -1,6 +1,6 @@
 # ios-bug-priority-tree
 
-A [Claude Code](https://claude.com/claude-code) skill for running a long iOS bug hunt with subagents against the iOS Simulator.
+A skill for running a long iOS bug hunt with subagents against the iOS Simulator. Works in both [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex/cli).
 
 The problem it solves: point a few agents at an app and tell them to "find bugs," and you get a first wave of easy findings, then diminishing returns, then a lot of tokens spent re-walking the same happy paths. This skill gives the orchestrator a plan for what to do after the easy bugs are gone, and a shared definition of what counts as a bug so agents stop arguing with themselves about whether something is "just cosmetic."
 
@@ -25,14 +25,19 @@ Most of this came out of watching runs go wrong: a verifier that spent 326 turns
 
 ## Install
 
-Skills live in `~/.claude/skills/` (available everywhere) or `.claude/skills/` inside a project.
+Both agents read the same `SKILL.md`; only the directory differs. Global installs are shown here, but per-project `.claude/skills/` and `.codex/skills/` work the same way.
 
 ```bash
 git clone https://github.com/ChrisThoma/ios-bug-priority-tree.git
+
+# Claude Code
 cp -r ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.claude/skills/
+
+# Codex
+cp -r ios-bug-priority-tree/skills/ios-bug-priority-tree ~/.codex/skills/
 ```
 
-Claude picks it up on the next session. You can also invoke it directly with `/ios-bug-priority-tree`.
+It is picked up on the next session. Invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-priority-tree` in Codex. The `agents/openai.yaml` in the skill folder supplies Codex's display name and default prompt; Claude Code ignores it.
 
 ## Use
 
@@ -40,7 +45,11 @@ It is written as a companion to a "find N distinct issues" `/goal` loop, and it 
 
 ## Requirements
 
-Xcode command line tools (`xcrun simctl`), `ffmpeg` for the video and frame-stepping steps, and an MCP server or CLI that can drive the simulator (the commands assume `idb`-style tooling for taps and accessibility dumps). Every command in the file was checked against Xcode on macOS in August 2026; re-check if your Xcode is much newer or older.
+Xcode command line tools (`xcrun simctl`), `ffmpeg` for the video and frame-stepping steps, `sips` for downscaling screenshots, and an MCP server that can drive the simulator. The quoted tool names are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s, and the timing procedure assumes `idb` is available; swap in your own server's equivalents if you use a different one.
+
+On Codex, subagents need the `multi_agent` feature, which is stable and on by default (`codex features list | grep multi_agent`). On Claude Code, no extra setup is needed.
+
+Every command in the file was checked against Xcode on macOS in August 2026; re-check if your Xcode is much newer or older.
 
 ## License
 

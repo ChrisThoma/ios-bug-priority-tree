@@ -1,0 +1,4 @@
+interface:
+  display_name: "iOS Bug Priority Tree"
+  short_description: "Tracks, severity ladder, and escalation for an iOS bug hunt"
+  default_prompt: "Use $ios-bug-priority-tree to run an iOS bug hunt: assign the four finder tracks, score findings on the S1-S4 ladder, and escalate a track when its wave runs dry."
