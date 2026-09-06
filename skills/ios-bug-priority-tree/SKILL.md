@@ -1,197 +1,325 @@
 ---
 name: ios-bug-priority-tree
-description: Finder tracks, severity ladder, and escalation tiers for an iOS bug-hunt /goal loop. Load at the START of the hunt — it defines what counts as an issue (S1–S4), the four finder modalities (UI-flow, visual/design, code audit, performance) composed into every wave, per-track escalation when a wave runs dry, and how verifiers must check visual and performance fixes.
+description: Journey-centered finder tracks, severity, and escalation for an automated iOS bug hunt. Load at the START of the hunt to discover and test user journeys for UI functionality, understandable state, consistency, recovery, edge cases, and measurable user impact while preserving Track A-D orchestration.
 ---
 
-# iOS bug-hunt: tracks, severity, and escalation
+# iOS bug hunt: user journeys, impact, and escalation
 
-Companion to a "find N distinct issues" iOS `/goal` protocol. Load this at hunt start, before the first finder wave — track assignment and the severity ladder apply from wave one. The escalation tiers apply later, when a track's wave runs dry.
+Companion to a "find N distinct issues" iOS goal protocol. Load this skill before the first finder wave. The host protocol owns turns, builds, commits, issue status, fixes, and verifier scheduling. This skill owns app-map guidance, finder methods, severity, evidence, wave composition, and per-track escalation.
 
-## Host setup (Claude Code and Codex)
+The four track names are a stable interface. Keep Track A through Track D in prompts, ledgers, resume logic, and `HUNT.md` forwarding. The accessibility tree is a simulator navigation and observation tool; using it does not make the hunt an accessibility audit. Accessibility-specific defect hunting is a late escalation unless the host prompt explicitly requests it earlier.
 
-The skill is host-agnostic; both agents read the same `SKILL.md` frontmatter. Install it at `~/.claude/skills/ios-bug-priority-tree/` for Claude Code or `~/.codex/skills/ios-bug-priority-tree/` for Codex (per-project `.claude/skills/` and `.codex/skills/` work too).
+## Host setup
 
-What the orchestrator needs on either host:
+The skill is host-agnostic. Install it at `~/.claude/skills/ios-bug-priority-tree/` for Claude Code or `~/.codex/skills/ios-bug-priority-tree/` for Codex. Per-project skill directories work too.
 
-- **A simulator-driving MCP server** exposing tap / describe / screenshot calls. The tool names quoted below (`ui_find_element`, `ui_describe_all`) are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s; substitute your own server's equivalents.
-- **Host tools on PATH:** `xcrun simctl` (Xcode command line tools), `ffmpeg` for the recording and frame-stepping steps, `sips` for downscaling, and `idb` for taps and timing.
-- **Subagents.** Claude Code spawns them with its Task/Agent tool. Codex needs the `multi_agent` feature on (`codex features list | grep multi_agent`); it is stable and on by default. Every wave gets fresh agents on either host.
+Baseline requirements:
 
-Where a rule below names a specific tool or model tier, it names the Claude Code and Codex forms together. Everything else applies unchanged.
+- A simulator-driving server exposing targeted tap, text entry, element lookup, tree description, and screenshot calls. The examples use `ui_find_element` and `ui_describe_all`; substitute equivalents.
+- `xcrun simctl` and `sips` on PATH.
+- Fresh subagents for finder waves and verification.
 
-## Agent budgets — include this block verbatim in every subagent prompt
+Conditional tools:
 
-> **Budget.** Context cost grows with every turn you take — each turn re-reads your entire history, so a 300-turn session costs ~100× a 30-turn one, not 10×. Work within these caps and return early rather than push past them:
-> - **Finders:** return after **~30 simulator interactions or 3 candidate issues**, whichever comes first. If you cannot reach an assigned screen within 10 actions, record it as unreachable and move to the next area — do not keep retrying.
-> - **Verifiers:** the repro must complete in **≤15 simulator actions**. If it doesn't, return `BLOCKED: could not complete repro path` with what you tried — that is a valid verdict, not a failure.
-> - **Navigation:** use your simulator server's find-element call (`ui_find_element`, or describe a point) to locate controls. A full accessibility dump (`ui_describe_all`) is allowed at most **once per new screen** — never after every tap.
-> - **Screenshots:** the screenshot tool writes a file; **downscale before viewing** (`sips -Z 750 <file>`) and **view each image at most once** (`Read` in Claude Code, `view_image` in Codex) — a full-resolution screenshot pulled into context is paid again on every later turn. Take screenshots only when your track's method requires them or to capture final evidence; never as a general "where am I" check (use the tree for that).
-> - **One screenshot per verdict/finding** is the evidence ceiling for Tracks A and D and for all verifiers.
-> - **Report format:** your final report is a structured list — per finding/verdict: repro steps, expected vs actual, evidence, severity guess. **≤25 lines total.** Never narrate your process, dead ends, or turn-by-turn history; one line each for dead ends worth flagging. The orchestrator pays for every line you return on every one of its later turns.
+- `ffmpeg` for motion analysis and video-based timing.
+- `idb` when the selected timing procedure uses it.
+- `leaks` and `footprint` for targeted memory investigation.
 
-## Severity ladder — what counts as an issue
+Every simulator-bound prompt names exactly one UDID. Every simulator and `simctl` call must target that UDID explicitly; never use an implicit `booted` target when multiple simulators exist. Give concurrent workers unique artifact directories and filenames.
 
-Replaces any binary "cosmetic / not cosmetic" test. Every candidate gets a severity at CONFIRM time:
+## Safety and test contract
 
-- **S1** — crash, data loss, security exposure.
-- **S2** — broken flow, wrong data, lost input, unhandled error surfaced to the user.
-- **S3** — misleading state / UX failure: the user can't tell what happened or is led to a wrong conclusion. Includes: missing pressed/loading/disabled state on an async or destructive control; truncation or wrapping that changes a label's meaning; contrast that hides information (error text invisible against its background); a tap target too small to hit reliably; keyboard covering the field being edited; an empty state indistinguishable from a loading or error state.
-- **S4** — pure polish: alignment, spacing, non-semantic color choices, awkward-but-unambiguous layout.
+Before hunting, establish what can be inferred from the repository and host prompt:
 
-**Rules:** S1–S3 count toward the goal. S4 findings are logged in the ledger but at most 2 of the goal count may be S4 — finders must not farm polish. Distinct-root-cause dedup applies across all severities. A defect found by any track goes through the same CONFIRMED → FIX → VERIFY pipeline.
+- Supported target, OS, orientations, app capabilities, account roles, and integrations.
+- Test account, backend, fixtures, reset method, and whether destructive actions are safe.
+- Product promises from requirements, tests, visible UI copy, and established behavior elsewhere in the app.
+- Known limitations, unsupported conditions, and environment constraints.
 
-## Finder tracks — four modalities, all live from wave one
+Use sandbox accounts and synthetic data. Do not make real purchases, mutate production data, expose credentials or personal data in evidence, or perform irreversible external actions without explicit authorization. Host-wide network changes and other disruptive manual conditions require user approval and a restoration plan.
 
-Hand each finder only its own track's section and assigned commands — never this whole file. The tree lives in the orchestrator's context only.
+A finding's expected behavior must be grounded in a visible UI promise, documented requirement, data invariant, established equivalent behavior, or strong iOS convention. If the expected behavior is genuinely ambiguous, report a `PRODUCT QUESTION` lead rather than a candidate. Unreachable functionality is a coverage gap, not a defect, unless its entry point should be available to the tested user.
 
-**Evidence format per track** (overrides any blanket "one screenshot per issue" rule): Tracks A and B attach one screenshot per issue; Track C cites file:line plus the user-visible repro (no screenshot — it has no simulator); Track D quotes its measurements (stall seconds, before/after memory numbers). Track C additionally returns its leads (findings without a user-visible repro yet) in a separate list.
+## APPMAP.md: journey and coverage map
 
-### Track A — UI-flow (simulator, accessibility-tree driving)
+Create `APPMAP.md` before wave 1 from bounded source inspection, app metadata, launch behavior, and supplied product information; runtime finders then return concise deltas when they discover new paths or prerequisites. The orchestrator is the single writer.
 
-Walk screens, forms, nav paths; check data correctness, error states, lost input. Navigate via the accessibility tree; screenshots only as evidence. Baked-in free checks — include in every Track A prompt from wave one:
+Keep `APPMAP.md` compact and include it verbatim in every subagent prompt. It is the coverage map, not a second issue ledger. `ISSUES.md`, when supplied by the host protocol, remains the authority for defect status.
 
-- **Rapid double-tap** — "on any submit / purchase / like / destructive control you encounter, tap it twice in quick succession and check for duplicate actions or crashes."
-- **Force-quit & relaunch mid-flow** — "once per assigned area, kill and relaunch the app mid-flow and check that state restores sanely rather than being lost or corrupted."
-  ```
-  xcrun simctl terminate <UDID> <bundle-id>
-  xcrun simctl launch <UDID> <bundle-id>
-  ```
-- **Empty vs. huge data** — where the finder can control content, try zero items and absurdly many / absurdly long input; check for indistinguishable empty states, broken layout, lost input on limit.
-- **A sudden return to springboard IS a crash** — never dismiss it as a "transition." Before writing it off as unreproducible, check for a fresh report in `~/Library/Logs/DiagnosticReports/` (host path — simulator crashes land there), and replay the FULL sequence that got you there (if it happened while deleting, delete all the way down again).
+For each meaningful journey, record:
 
-### Track B — Visual/design audit (simulator, screenshot driving)
-
-**Screenshots ARE the method for this track** — the explicit exception to the a11y-tree rule and to the one-screenshot evidence ceiling (the budget block's downscale-and-view-once rule still applies: `sips -Z 750` before viewing, never view the same file twice). The finder navigates by tree but screenshots every distinct screen and *reads the pixels* against this rubric:
-
-- Tap targets ≥ 44pt; controls not overlapping or clipped.
-- Contrast: every piece of information legible against its actual background — especially error/status banners, placeholder text, disabled states.
-- Interactive feedback: tap an async/destructive control, then screenshot at ~0.3s and ~1s while the work is in flight. If both screenshots show the UI looking idle (control still enabled, no spinner/disabled/progress state) while the operation has not completed, that IS an S3 finding — do not downgrade it to "inconclusive" for lack of a visible spinner; the absence is the defect. A momentary tint flash is not feedback for a multi-second operation.
-- Text: wrapping and truncation with real long content; labels that ellipsize into ambiguity or wrap into misalignment.
-- Safe area: content under notch/home-indicator; keyboard avoidance (screenshot with keyboard up on every input screen).
-- Empty states: distinguishable from loading and from error.
-
-Run the rubric in **light and dark mode** (dark is a first-pass condition here, not an escalation):
 ```
-xcrun simctl ui <UDID> appearance dark|light
+JID | user goal | entry path | prerequisites/test data | expected outcome
+states/branches: success, validation, cancel, loading, empty, error, retry, completed (applicable only)
+coverage: discovered | attempted | core-covered | blocked | unsupported
+tested: conditions relevant to this journey
+next: highest-value untested state or branch
 ```
-Severity per the ladder: hides/changes information → S3; pure aesthetics → S4 (log, don't chase).
 
-### Track C — Static code audit (no simulator — free parallelism)
+Also record exact launch/reset commands, stable screen names, global navigation, test-data sentinels, capabilities, and blocked entry points. A journey is a user goal or meaningful task, not a screen. Visiting a screen does not cover its actions or states. A journey is `core-covered` only after its principal outcome and applicable state, cancellation, error, and persistence behavior have been observed.
 
-Reads app source; needs no simulator, so it runs alongside A/B from wave one at zero sim cost. Targets: logic errors (off-by-one, date/timezone/locale math, boundary conditions), unhandled errors and empty catch blocks, races beyond UI double-tap (shared mutable state, unawaited tasks), state-management smells — especially one logical change written across two state systems (`@Observable` store mutation + local `@State` reset), force-unwraps and `try!` on user-reachable paths, ignored return values on save/commit calls.
+Finder reports include only `APPMAP.md` deltas: new or corrected journeys, coverage changes, blockers, and the next useful probe. Do not return a rewritten map. Broad discovery is exhausted only when the known frontier is empty and fresh runtime passes plus bounded source inspection reveal no new meaningful journey or high-risk branch.
 
-**Lead rule:** a code finding becomes a CANDIDATE only once expressed as a user-visible repro (which screen, what steps, what the user sees). A finding the code-auditor can't script into a repro is a **lead**: the orchestrator hands it to a Track A finder ("try to make this visible: <lead>") in the next wave. Leads are free hypotheses, not ledger entries.
+## Agent budgets - include this block verbatim in every subagent prompt
 
-### Track D — Performance probe (simulator + host tools)
+> **Budget.** Context cost grows with every turn you take. Work within these caps and return early rather than push past them:
+> - **Finders:** return after **about 30 simulator interactions or 3 candidate issues**, whichever comes first. Prioritize completing an assigned journey over counting screens. If setup consumes most of the budget, return the exact checkpoint and remaining probes. If you cannot reach an assigned path within 10 actions beyond its documented setup, record it as blocked and move on.
+> - **Verifiers:** the defect repro itself must complete in **15 simulator actions or fewer**, excluding documented fixture setup. If it does not, return `BLOCKED: could not complete repro path` with what you tried.
+> - **Navigation:** use the assigned UDID and the simulator server's find-element call (`ui_find_element`, or describe a point) to locate controls. A full tree dump (`ui_describe_all`) is allowed at most **once per new screen state**, never after every tap.
+> - **Screenshots:** downscale a viewing copy before inspection (`sips -Z 750 <copy>`), retain the original evidence, and view each image at most once. Take screenshots when the track's method requires them or to capture evidence, not as a general navigation aid.
+> - **Evidence:** return one primary artifact per finding. A bounded before/after pair or short video/contact sheet is allowed when a single image cannot prove the claim.
+> - **Report:** return a structured list with at most 3 candidates. For each: journey ID, preconditions, exact repro, expected basis, expected vs actual, user impact, reproduction count when practical, evidence, severity guess, and suspected duplicate. Add compact `APPMAP.md` deltas and worthwhile leads. Keep the report at **25 lines or fewer** and do not narrate process or dead ends.
 
-Simulator apps are host processes, so host tools attach directly. Thresholds — below these, it's not an issue:
+## Severity ladder
 
-- **Visible hang > 1s** during any interaction; **cold launch > 2s** to first content.
-  ```
-  xcrun simctl io <UDID> recordVideo --codec h264 --force out.mov   # stop with kill -INT
-  ffmpeg -i out.mov -vf "select='gt(scene,0.02)',showinfo" -f null - 2>&1 | grep pts_time
-  ```
-  Record the cold launch or the suspect interaction; the pts_time gaps give you the stall duration. Quote seconds in the finding.
-- **Monotonic memory growth** across a repeated flow (open/close the same screen 10×):
-  ```
-  leaks <pid>          # leak count and bytes
-  footprint <pid>      # phys_footprint / peak
-  ```
-  Get the pid from `xcrun simctl launch` output. Growth that never plateaus, or nonzero leaks tied to the repeated flow, is the finding — quote before/after numbers.
+Assign severity from demonstrated user impact, not from the finder track or checklist category:
+
+- **S1 - catastrophic:** crash on a consequential or normally reachable path, unrecoverable data loss, security/privacy exposure, or a severe unintended irreversible action.
+- **S2 - task failure or harmful result:** a meaningful user goal is blocked; committed or displayed data is wrong; input is lost; an action produces duplicate or unintended effects; recovery requires abandoning the journey or repairing data outside its normal flow.
+- **S3 - material UX failure:** the task remains possible, but the app misleads the user, obscures necessary state, behaves inconsistently enough to cause a wrong action, or cannot be operated reliably. Examples include indistinguishable loading/error/empty states, absent feedback that leaves a consequential action ambiguous, keyboard obstruction, meaningful truncation, recoverable lost progress, or an unreliable control.
+- **S4 - polish:** visible inconsistency or aesthetic degradation that does not obscure meaning, change behavior, mislead the user, or reduce reliable operation.
+
+Record reproduction confidence, journey importance, recoverability, and affected conditions separately from severity. A rubric match is not automatically S3: state the actual user consequence. The host goal may count S1-S3 plus at most two S4 findings. Deduplicate by demonstrated behavior and triggering condition first; merge by root cause only when evidence supports it.
+
+## Candidate and evidence rules
+
+Track A, B, and D candidates require runtime evidence from the installed build. Reproduce from a known baseline twice when practical; record results such as `2/2` or `1/3`. One clear reproduction may be sufficient for destructive S1 behavior that is unsafe to repeat. Tool failure, environment contamination, unsupported capabilities, and uncertain product intent are not candidates.
+
+Use evidence appropriate to the claim:
+
+- Stable visual or state defect: screenshot.
+- Lost or inconsistent state: bounded before/after pair with the same sentinel data.
+- Transient interaction defect: short video or contact sheet with timestamps.
+- Crash: full triggering sequence and crash-report reference; a return to Springboard is a crash lead until process exit or a crash report supports it.
+- Performance: commands, conditions, all measurements, and summary statistic.
+- Source lead: file and line or symbol plus a proposed user-visible repro; no screenshot required.
+
+A Track C finding may be a candidate without driving a simulator only when it includes file/line evidence and a precise user-visible repro that a simulator finder can drive with existing launch arguments. Otherwise it is a lead. Security, privacy, silent data-integrity, or background-behavior risks that cannot meet the user-visible gate remain leads with category-appropriate supporting evidence.
+
+## Finder tracks
+
+Hand each finder the budget block, `APPMAP.md`, host priors that apply to it, and only its own track section. Every track reports user impact and map deltas using the common rules above.
+
+### Track A - Journey and UI functionality
+
+Drive meaningful user goals through the tree. Coverage is verified state transitions, not controls or screens visited.
+
+For each assigned journey:
+
+1. Establish the documented baseline and unique sentinel data.
+2. Perform the primary action and observe immediate feedback.
+3. Wait for a settled success or failure state and verify the promised outcome.
+4. Check other visible representations of the result, such as list/detail, badge/count, search/filter, or summary.
+5. Navigate away and return; relaunch when persistence or restoration is part of the product contract.
+6. Exercise applicable validation, cancel/back, retry, destructive confirmation, repeated action, and interruption behavior.
+
+Baked-in probes, applied only when relevant:
+
+- Rapidly repeat consequential submit, save, purchase-sandbox, like, or destructive actions; judge duplication against the action's contract rather than assuming every repeat is invalid.
+- Enter empty, invalid, minimum, maximum, duplicate, realistic long, and repeated data where the UI implies such boundaries.
+- Begin an edit and separately test cancel and save. Check that each result appears consistently throughout the app.
+- Once per stateful assigned area, background or terminate mid-flow and relaunch. Do not assume drafts must survive force termination unless the app promises restoration; look for corruption, false success, duplicate effects, or an unrecoverable state.
+- If the app unexpectedly exits, inspect `~/Library/Logs/DiagnosticReports/` and replay the full sequence before classifying it as a crash.
+
+### Track B - Visual-functional UX and consistency
+
+Screenshots are the inspection method for this track. Navigate through actual journeys, then capture representative states rather than every screen. Inspect pixels together with observed interaction behavior.
+
+Core rubric:
+
+- **State clarity:** loading, empty, error, success, selected, disabled, destructive, and completed states are distinguishable and lead to a clear next action.
+- **Action feedback:** consequential work produces perceivable, accurate feedback while in flight and at completion. A spinner or disabled button is not mandatory; optimistic updates, navigation, inline changes, and system feedback can be valid. File a candidate only when the absence or inaccuracy causes demonstrated ambiguity or harmful repetition.
+- **Behavioral consistency:** equivalent actions use consistent labels, placement, gestures, confirmation, cancellation, and feedback. Compare equivalent concepts, not merely similar-looking controls.
+- **Visual operability:** controls do not overlap, clip, shift out of reach, or become obscured by sheets, safe areas, or the keyboard. Visible target size alone does not prove the tappable frame; verify unreliable activation behavior before assigning S3.
+- **Content integrity:** realistic long content remains understandable; truncation or wrapping does not change meaning or hide required actions.
+- **Cross-state integrity:** transitions do not flash stale or wrong data, lose identity, jump to an unrelated position, or settle into an ambiguous state.
+- **Appearance:** sample representative flagship states in light and dark mode. File issues when information or operation changes, not for preference alone.
+
+```
+xcrun simctl ui <UDID> appearance dark
+xcrun simctl ui <UDID> appearance light
+```
+
+Capture keyboard-up evidence on input-heavy journeys and before/after evidence for state changes. Preserve full-resolution originals; inspect downscaled copies. Pure visual variation without user consequence is S4 or a product question.
+
+### Track C - Source-assisted user-impact audit
+
+Read source without driving a simulator. Use `APPMAP.md` to connect implementation risks to mapped journeys and to discover hidden capabilities, routes, prerequisites, and state branches.
+
+Prioritize:
+
+- Wrong data, boundary, date/timezone/locale, sorting/filtering, and persistence logic.
+- Errors that are discarded, converted to false success, or leave loading state stuck.
+- Races, duplicate requests, unawaited tasks, stale responses, and shared mutable state.
+- One logical change split across multiple state systems, especially observable model state plus local view state.
+- Force unwraps, `try!`, ignored save/commit results, and user-controlled indexing.
+- Authentication/session, role, entitlement, import/export, sync, notification, deep-link, and declared capability paths applicable to the app.
+- Silent security, privacy, analytics-consent, background-sync, and data-integrity failures.
+
+A lead includes file/line or symbol, affected journey, trigger, predicted user consequence, and a concrete runtime probe. Ordinary leads become candidates only after user-visible runtime reproduction. Return hidden-route and prerequisite discoveries as `APPMAP.md` deltas. Pin reports to the source revision supplied by the host when fixes may occur concurrently.
+
+### Track D - Targeted performance probe
+
+Run after mapped journeys identify high-frequency interactions, visible stalls, expensive screens, or repeated flows worth measuring. Simulator results are triage evidence, not physical-device certification.
+
+For interaction and launch timing:
+
+- Define an observable start event and semantic completion condition before recording.
+- Keep build type, simulator, fixture, cache/network state, and concurrent host load stable.
+- Warm up once, collect at least three measured runs, and report all values plus median and worst case.
+- Treat visible unresponsiveness over 1 second or cold launch over 2 seconds as investigation thresholds, not automatic defects.
+- Scene-change detection may locate a window to inspect, but scene counts and gaps alone do not prove a hang.
+
+```
+xcrun simctl io <UDID> recordVideo --codec h264 --force <unique-path>.mov
+ffmpeg -i <unique-path>.mov -vf "select='gt(scene,0.02)',showinfo" -f null - 2>&1
+```
+
+For repeated-flow memory investigation, warm the flow, sample a settled baseline, then sample after repeated batches such as 10x, 20x, and 30x with an idle control. Growth must remain material across batches and be attributable to the app-owned flow; one before/after increase or an unattributed nonzero `leaks` result is inconclusive.
+
+```
+leaks <pid>
+footprint <pid>
+```
 
 ## Wave composition
 
-With 2 simulators: **wave 1 = Track A on SIM-A, Track B on SIM-B, plus 1–2 Track C agents off-simulator.** Track D interleaves when a simulator frees up (verify phases are a natural gap). Never spawn an agent just to keep a simulator busy. If an SE-class device type is available, prefer it for one of the sims — smallest-screen layout is free coverage.
+Before wave 1, ensure `APPMAP.md` contains at least launch/reset instructions, global navigation, known journeys, prerequisites, and test data. It may be source-derived initially. Runtime discoveries refine it.
 
-**Every wave and every escalation tier gets a fresh agent.** Never continue a previous wave's finder by messaging it again, and never run multiple ladder tiers inside one agent session — a long-lived agent re-pays its entire accumulated history (screenshots included) on every turn. Hand the fresh agent a ≤10-line summary of what prior waves found and which areas came up dry.
+Assign one simulator-bound finder per free simulator, and name the one UDID it may drive. With the host protocol's two simulators:
 
-## Escalation — per track, when a wave runs dry
+- **SIM-A:** Track A tests and expands the highest-value mapped journeys.
+- **SIM-B:** Track B independently maps screen families and state cues while inspecting representative journeys for operability and consistency.
+- **Off simulator:** one or two non-overlapping Track C auditors inspect different risk areas or source partitions.
+- **Track D:** interleave only after a simulator frees up and a named journey or symptom warrants measurement.
 
-- **One dry wave escalates.** Zero new distinct-root-cause candidates from a track's wave → move that track up its ladder. Never repeat a tier that just came up dry.
-- **One wave per tier.** Then escalate regardless.
-- **Diversify within the wave**: assign each finder a *different* category from the tier.
-- **Don't skip tiers**; skip a *category* only if it can't apply.
+Merge map deltas after the wave, then assign later waves from uncovered journeys, states, and applicable risks. Give fresh agents a short summary of prior findings, known dead ends, and their exact coverage gap. Never spawn agents merely to keep a simulator busy.
+
+## Escalation
+
+A wave is dry for a track when it produces no new distinct-root-cause candidate, as defined by the host protocol. Coverage deltas still direct the next assignment but do not count as candidates. Never repeat a tier that just came up dry. If a new journey appears, include its core testing in the next applicable assignment without undoing the track's required escalation.
+
+Run one wave per tier, then escalate as the host protocol requires. Diversify categories when a wave has multiple finders, risk-rank them for the actual app, and explicitly skip irrelevant categories rather than running generic checks blindly.
 
 ### Track A ladder
 
-**Tier 1 — cheap, simctl-scriptable:**
+**Tier 0 - functional depth:**
 
-1. **Permission denial** — revoke, then exercise the flow that needs it:
+1. CRUD or equivalent lifecycle: create, reopen, edit/cancel, save, delete/undo, relaunch.
+2. Validation and recovery: invalid to corrected input without losing unrelated work.
+3. Cross-view consistency: list/detail, counts, search, filter, sort, and stale refresh behavior.
+4. Interruption and concurrency: repeated actions, back/cancel during work, background/relaunch, stale responses.
+5. Empty, populated, maximum, duplicate, partial, and failed states applicable to each core journey.
+
+**Tier 1 - cheap applicable conditions:**
+
+1. Permission denial for capabilities the app actually requests:
    ```
    xcrun simctl privacy <UDID> revoke <service> <bundle-id>
+   xcrun simctl privacy <UDID> reset all <bundle-id>
    ```
-   Services: `location`, `location-always`, `photos`, `photos-add`, `contacts`, `contacts-limited`, `calendar`, `reminders`, `microphone`, `media-library`, `siri`. Reset: `simctl privacy <UDID> reset all`.
-2. **Deep links / URL schemes** — each link cold (terminated) and warm (mid-flow elsewhere):
+2. Declared deep links, each cold and warm:
    ```
    xcrun simctl openurl <UDID> "<url>"
    ```
-3. **Push notification routing:**
+3. Declared push routes with sanitized payloads:
    ```
-   xcrun simctl push <UDID> <bundle-id> payload.json   # top-level aps key, ≤4096 bytes
+   xcrun simctl push <UDID> <bundle-id> <unique-payload>.json
    ```
-4. **Date/timezone edges** — relaunch under a hostile zone and check every date the UI shows:
+4. Date and timezone boundaries where the app displays, groups, expires, or calculates dates:
    ```
    SIMCTL_CHILD_TZ=Pacific/Kiritimati xcrun simctl launch <UDID> <bundle-id>
    ```
 
-**Tier 2 — full re-walk of 2–3 key flows under changed conditions** (costs a normal finder pass):
+Terminate before applying launch-only conditions. Restore and verify the baseline after each assignment.
 
-5. **Locale / RTL** — mirrored-layout navigation breakage, not just untranslated strings:
+**Tier 2 - changed environment:**
+
+5. Locale and RTL when localization is supported; find navigation and meaning failures, not untranslated-copy inventory:
    ```
    xcrun simctl launch <UDID> <bundle-id> -AppleLanguages "(ar)" -AppleLocale "ar_SA"
    ```
+6. Rotation, multitasking, role/session expiry, import/export, media interruption, or hardware-related states only when supported and automatable.
 
-**Tier 3 — expensive, host-disruptive, or manual — only if still short:**
+**Tier 3 - disruptive or manual:**
 
-6. **Network fault injection** (offline/slow/lossy). No simctl API — the Simulator shares the host stack; toggling host Wi-Fi or Network Link Conditioner affects the orchestrator too. Confirm with the user first; keep it brief.
-7. **Memory pressure** — manual only: Simulator app ▸ Device ▸ Trigger Memory Warning.
-8. **Rotation / landscape** — no simctl command; AppleScript keystrokes to the Simulator app proved unreliable on this machine. Manual (⌘→ in Simulator) or skip for portrait-locked apps.
-9. **Accessibility as a defect target** — a pass checking that accessibilityLabel/traits/hints match visible content, not just using the tree to navigate.
-10. **iPad split-view / multitasking** — universal apps only.
+7. Offline, slow, or lossy networking. Simulator networking affects the host; obtain user approval first.
+8. Memory warning, rotation when automation is unavailable, or physical-device-only capabilities. Mark unsupported coverage honestly.
+9. iPad split view for universal apps.
+
+**Tier 4 - accessibility-specific audit:**
+
+10. VoiceOver meaning and focus order, labels/values/traits/actions, announcements, nonvisual discoverability, and accessibility-specific system settings. This is escalation-only unless the host requests it earlier. Grade defects with the same user-impact ladder.
 
 ### Track B ladder
 
-**Tier 1 — re-run the rubric under one changed condition each:**
+**Tier 0 - representative state coverage:**
 
-1. **Dynamic Type extremes** — critical text truncated past readability, controls pushed off-screen:
-   ```
-   xcrun simctl ui <UDID> content_size accessibility-extra-extra-extra-large
-   ```
-2. **Pseudo-localization long strings** — every label doubled; finds fixed-width assumptions without needing translations:
+1. Compare equivalent controls and components across core journeys.
+2. Capture validation, keyboard-up, loading, error, empty, success, destructive, and completed states where applicable.
+3. Sample light/dark and smallest/largest supported target sizes on flagship states.
+4. Exercise realistic long and boundary content using app-valid data.
+
+**Tier 1 - applicable compatibility conditions:**
+
+1. Pseudo-localized long strings for fixed-width and meaning failures:
    ```
    xcrun simctl launch <UDID> <bundle-id> -NSDoubleLocalizedStrings YES
    ```
-3. **Increase Contrast mode** — information that vanishes when the system remaps colors:
-   ```
-   xcrun simctl ui <UDID> increase_contrast enabled|disabled
-   ```
-4. **Fake status bar** — layouts that assume a short clock or full signal:
+2. Status-bar extremes where layout uses the top safe area:
    ```
    xcrun simctl status_bar <UDID> override --time "23:59" --batteryState charging --batteryLevel 4
    xcrun simctl status_bar <UDID> clear
    ```
+3. Supported orientation and iPad size-class changes.
 
-**Tier 2 — transient motion (record & frame-step).** Screenshots and the a11y tree only see settled end states; every other category is blind to what happens *during* an animation. Record each flagship animated interaction, then frame-step:
+Terminate before launch-only conditions and restore the baseline after each assignment.
+
+**Tier 2 - transient motion, symptom-driven:**
+
+Record only interactions with a visible flash, identity swap, stale frame, jump, or ambiguous completion. Use scene detection to locate inspection windows, then judge explicit invariants; do not use scene-change counts as a defect threshold.
+
 ```
-xcrun simctl io <UDID> recordVideo --codec h264 --force out.mov   # stop with kill -INT
-ffmpeg -i out.mov -vf "select='gt(scene,0.02)',showinfo" -f null - 2>&1 | grep pts_time
-ffmpeg -ss <t> -t 1.2 -i out.mov -vf "fps=30,scale=360:-1" f%02d.png && ffmpeg -i f%02d.png -frames:v 1 -vf tile=4x5 sheet.png
+xcrun simctl io <UDID> recordVideo --codec h264 --force <unique-path>.mov
+ffmpeg -ss <t> -t 1.2 -i <unique-path>.mov -vf "fps=30,scale=360:-1" <unique-dir>/f%02d.png
+ffmpeg -i <unique-dir>/f%02d.png -frames:v 1 -vf tile=4x5 <unique-path>-sheet.png
 ```
-Look for: an element vanishing for a few frames, content flashing wrong data mid-transition, layout jumping after the animation "ends." 1–2 scene-change hits is clean; 4+ within half a second is a candidate — tile that window and read it. Cost control: 2–3 flagship interactions only, triage with the scene filter, never frame-step an unflagged recording. Aim first where the code smells: animation state applied by slot/index instead of identity (`index == 0 ? offset : .zero`), and completion blocks writing one logical change across two state systems — the frame between the two writes is the bug.
 
-### Track C / D
+**Tier 3 - accessibility-specific presentation audit:**
 
-Track C runs once; it re-runs only when new leads or new code (post-fix) exist. Track D runs once per distinct screen-set; re-run only after fixes touch the measured flows.
+Dynamic Type extremes, Increase Contrast, Differentiate Without Color, Reduce Motion, and related settings run here unless requested earlier. A standards mismatch becomes a candidate only with category-appropriate evidence and severity based on impact.
 
-## Verification addendum — visual and perf fixes
+```
+xcrun simctl ui <UDID> content_size accessibility-extra-extra-extra-large
+xcrun simctl ui <UDID> increase_contrast enabled
+xcrun simctl ui <UDID> increase_contrast disabled
+```
 
-Verifiers never see the fix or diff, only the defect description + repro — and their prompt must explicitly FORBID reading the app's source code, diffs, or git history (otherwise they go find the fix themselves and rubber-stamp it, which happened in testing). Verifiers that drive a simulator run on a **mid-tier model, not the cheapest one** (in Claude Code: sonnet rather than haiku; in Codex: leave reasoning effort at medium rather than dropping to minimal) — in testing a cheap verifier flailed for 326 turns and 35 screenshots on a 5-step repro; fewer turns beats cheaper turns. Verifier prompts include the budget block's 15-action cap. All verifier evidence comes from driving the installed build. A verdict that cites source code instead of runtime observation is inadmissible: reject it and spawn a new verifier. Two track-specific requirements:
+### Track C and Track D escalation
 
-- **Track B fixes:** the verifier re-runs the scenario, takes a fresh screenshot, and its verdict must describe what the screenshot now shows at the defect's location (e.g., "the error banner is now white-on-red and legible"). "Looks fixed" without citing pixel-level content is not a verdict — send it back.
-- **Track D fixes:** the verifier re-runs the same measurement (same recordVideo/ffmpeg or leaks/footprint procedure, included in its prompt) and quotes before/after numbers against the threshold.
-- **Timing pitfall (finders and verifiers both):** never *assume* when a tap happened — measure it. The first `idb` command in a fresh shell spins up a companion and can take seconds, so "I tapped ~1.5s after recording started" can be off by several seconds and manufactures a phantom hang. Procedure: warm idb first with a throwaway command (`idb ui describe-all` and discard it), bracket the measured tap with wall-clock timestamps (`python3 -c 'import time; print(time.time())'` before and after), record the recording-start wall-clock the same way, and compute the tap's pts offset from those — then stall = first scene-change pts − tap pts. If a measured stall exceeds the finder's original defect measurement, treat your own timing as the prime suspect before blaming a regression.
+Track C runs once per non-overlapping source partition and re-runs when new map leads or post-fix code warrant it. Track D runs once per named journey and metric; re-run only after fixes touch the measured behavior or prior measurements are inconclusive for a correctable reason.
+
+## Blind verification addendum
+
+Verifiers receive the defect description, exact repro, expected behavior, target build path, `APPMAP.md`, assigned UDID, and required environment or measurement procedure. Explicitly forbid reading source code, diffs, git history, commit messages, or implementation notes. All verdict evidence comes from driving the installed build.
+
+Before replay, record the tested app path/build identity, target, simulator UDID, OS, fixture/account, and relevant condition. Restore the original preconditions. Use a fresh mid-tier-or-better simulator agent and the budget block's verifier cap.
+
+Allowed verdicts align with the host ledger:
+
+- `VERIFIED`: the original defect is absent and the expected user outcome is observed.
+- `REJECTED`: the original defect or an equivalent harmful behavior remains.
+- `BLOCKED`: a prerequisite or repro path cannot be completed within the cap.
+
+If the path completes but evidence cannot distinguish fixed from unfixed, return `BLOCKED: inconclusive evidence` and explain what is missing. For `VERIFIED`, rerun the exact repro, describe the observed state at the former defect location, and check one named adjacent invariant such as cancellation, repeated action, persistence, or the equivalent control elsewhere.
+
+- **Track B fixes:** capture fresh evidence appropriate to the claim and describe the relevant pixels and behavior. "Looks fixed" is not a verdict.
+- **Track D fixes:** repeat the same measurement under comparable conditions and quote all runs, median, and worst case against the original values.
+- **Timing pitfall:** never estimate when a tap occurred. If using `idb`, set its assigned UDID, warm it with a throwaway describe command, bracket the tap and recording start with wall-clock timestamps, and calculate the tap offset. If timing worsens unexpectedly, investigate measurement error and host load before claiming regression.
 
 ## Notes
 
-- Tiers are ordered by cost-to-run vs. bug-yield, not by severity of what they might find.
-- All commands verified against this machine's Xcode/simctl on 2026-08-08 (`status_bar`, `leaks`/`footprint` on a simulator PID, `SIMCTL_CHILD_TZ`, `-NSDoubleLocalizedStrings`, `increase_contrast`, recordVideo+ffmpeg). Re-check if the Xcode version differs.
+- Keep environment changes scoped to the assigned UDID and restore baseline settings after each worker.
+- Accessibility-specific auditing is late by design for this workflow; observable usability failures remain core regardless of which users they affect.
+- Escalation order reflects likely defect yield and execution cost, not possible severity.
+- Re-check commands against the installed Xcode and simulator runtime before relying on them.

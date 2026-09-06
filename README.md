@@ -1,10 +1,10 @@
 # ios-bug-priority-tree
 
-An agent skill for [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex/cli) that runs a long iOS bug hunt with subagents against the iOS Simulator, and keeps finding real bugs after the easy ones are gone.
+An agent skill for [Claude Code](https://claude.com/claude-code) and [Codex](https://developers.openai.com/codex/cli) that guides a long, simulator-driven iOS bug hunt around user journeys, UI functionality, understandable state, consistency, recovery, edge cases, and demonstrated user impact.
 
-Point a few agents at an app and tell them to "find bugs" and you get one wave of easy findings, then diminishing returns, then a lot of tokens spent re-walking the same happy paths. This skill gives the orchestrator a plan for what to do next, and a shared definition of what counts as a bug so agents stop arguing with themselves about whether something is "just cosmetic."
+Point a few agents at an app and tell them to "find bugs" and you get one wave of easy findings, then diminishing returns, then a lot of tokens spent re-walking the same happy paths. This skill gives an external goal/orchestration loop a testing method: map meaningful user goals, verify state transitions instead of counting visited screens, record coverage gaps, and escalate into relevant conditions only after normal journeys have real depth.
 
-Severity runs S1 to S4: S1 is a crash or data loss, S2 is a broken flow or wrong data, S3 is misleading state (the user cannot tell what happened), S4 is pure polish. S1 through S3 count toward the goal; S4 is capped at 2 so finders don't farm alignment nits. Most of the rest came out of watching runs go wrong: a verifier that spent 326 turns on a 5-step repro, agents dismissing a return-to-springboard as "a transition," phantom hangs caused by mistiming a tap rather than by the app.
+Severity runs S1 to S4: S1 is catastrophic harm, S2 is task failure or a harmful result, S3 is a material UX failure, and S4 is pure polish. Severity follows the demonstrated user consequence rather than the audit category. S1 through S3 count toward the goal; at most two S4 findings may count so agents cannot satisfy a hunt with alignment nits.
 
 ## Install
 
@@ -25,25 +25,27 @@ For Codex, copy into `~/.codex/skills/` instead — both hosts read the same `SK
 
 ## Use
 
-Invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-priority-tree` in Codex. It is written as a companion to a "find N distinct issues" `/goal` loop, and it expects to be loaded at the start of the hunt, before the first wave, since track assignment and the severity ladder apply from the beginning. The tree stays in the orchestrator's context; each finder gets only its own track's section, never the whole file.
+Invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-priority-tree` in Codex. It is a policy and testing-method companion to a "find N distinct issues" goal loop, not an executable test harness. The host loop owns builds, turns, commits, issue status, and scheduling. Load the skill before the first finder wave so its Track A-D interface, severity ladder, app-map guidance, and escalation rules apply from the beginning. Each finder receives only its own track section plus the shared budget and app map.
 
 ## What it does
 
-1. **Split** the hunt into four finder tracks that all run from wave one. Track A drives the app through the accessibility tree, hunting broken flows, lost input, and bad error states. Track B screenshots every screen and reads the pixels against a rubric (tap targets, contrast, truncation, keyboard avoidance, empty states), in light and dark mode. Track C reads the source with no simulator attached, so it runs in parallel for free. Track D measures: hangs over 1s, cold launch over 2s, memory that grows and never plateaus.
-2. **Escalate** per track when a wave comes up empty, instead of repeating it. Track A moves to permission denial, deep links, push routing, hostile timezones, then RTL, then the expensive manual work. Track B moves to Dynamic Type extremes, pseudo-localization, increased contrast, fake status bars, then frame-stepping recorded animations to catch bugs that only exist mid-transition.
-3. **Gate** Track C's findings behind a user-visible repro; a code smell is not a bug until someone reproduces it.
-4. **Budget** the turns. Each agent turn re-reads the whole conversation, so a 300-turn agent costs far more than ten 30-turn agents. The skill caps finder turns, forbids screenshot re-reads, requires a fresh agent per wave, and holds reports to 25 lines.
-5. **Verify** blind. Verifiers are barred from reading the source, the diff, or git history, because a verifier that finds the fix will rubber-stamp it. They drive the installed build and describe what they actually saw.
+1. **Map** the app in `APPMAP.md` as user goals, entry paths, prerequisites, outcomes, meaningful state branches, test data, and coverage gaps. Screens remain navigation landmarks; they are not the unit of coverage.
+2. **Test** through four stable tracks. Track A completes journeys and verifies data and persistence. Track B inspects visual-functional state and consistency during real journeys. Track C connects source risks and hidden routes to user impact. Track D measures named, high-value journeys when a symptom warrants it.
+3. **Probe** state transitions. A normal journey check follows baseline, action, immediate feedback, settled outcome, cross-view consistency, and return or relaunch, then applies relevant validation, cancel, retry, duplicate-action, interruption, and recovery cases.
+4. **Escalate** from uncovered normal states into applicable permissions, routes, dates, locales, device conditions, motion analysis, and disruptive tests. Accessibility-specific auditing is a late tier unless explicitly requested earlier; using the accessibility tree to drive the simulator is only automation plumbing.
+5. **Demand impact** before counting a finding. A checklist match is not automatically S3, ambiguous product intent is a product question, and ordinary source smells remain leads until runtime behavior confirms them.
+6. **Budget** context with fresh agents, assigned UDIDs, bounded evidence, map deltas, and concise reports.
+7. **Verify** blind. Verifiers receive the defect, repro, app map, build path, and environment, but not source, diffs, history, commit messages, or implementation notes. They repeat the user journey and one named adjacent invariant.
 
 See [SKILL.md](skills/ios-bug-priority-tree/SKILL.md) for the full tree.
 
 ## Requirements
 
-Xcode command line tools (`xcrun simctl`), `ffmpeg` for the video and frame-stepping steps, `sips` for downscaling screenshots, and an MCP server that can drive the simulator. The quoted tool names are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s, and the timing procedure assumes `idb` is available; swap in your own server's equivalents if you use a different one.
+Baseline requirements are Xcode command line tools (`xcrun simctl`), `sips`, and a server that can drive a specifically assigned simulator. The quoted tool names are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s; substitute your own server's equivalents. `ffmpeg`, `idb`, `leaks`, and `footprint` are conditional requirements for motion, timing, or memory escalation rather than prerequisites for every hunt.
 
 On Codex, subagents need the `multi_agent` feature, which is stable and on by default (`codex features list | grep multi_agent`). On Claude Code, no extra setup is needed. The `agents/openai.yaml` in the skill folder supplies Codex's display name and default prompt; Claude Code ignores it.
 
-Every command in the file was checked against Xcode on macOS in August 2026; re-check if your Xcode is much newer or older.
+Use disposable simulators, sandbox accounts, and synthetic data. Do not aim destructive or repeated-action probes at production services. Re-check commands against the installed Xcode and simulator runtime before relying on them.
 
 ## License
 
