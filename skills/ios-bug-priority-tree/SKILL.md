@@ -44,7 +44,9 @@ A finding's expected behavior must be grounded in a visible UI promise, document
 
 Create `APPMAP.md` before wave 1 from bounded source inspection, app metadata, launch behavior, and supplied product information; runtime finders then return concise deltas when they discover new paths or prerequisites. If a map already exists, validate and migrate it to the journey schema below before reuse. Do not treat a screen list as a current coverage map. Preserve still-valid launch, reset, capability, and intentional-behavior facts while removing stale guesses. The orchestrator is the single writer.
 
-Keep `APPMAP.md` compact and include it verbatim in every subagent prompt. It is the coverage map, not a second issue ledger. `ISSUES.md`, when supplied by the host protocol, remains the authority for defect status.
+Keep `APPMAP.md` compact. It is the coverage map, not a second issue ledger. `ISSUES.md`, when supplied by the host protocol, remains the authority for defect status.
+
+Give every subagent the map atomically. In a shared workspace, prefer an explicit first action to read the exact repo-root `APPMAP.md`; otherwise paste its full contents. Never use placeholders, summaries, ellipses, or "same as above." Before dispatch, reject any prompt containing an unexpanded map/track placeholder. A worker must read the map before simulator or source work and identify its assigned JID.
 
 For each meaningful journey, record:
 
@@ -69,7 +71,7 @@ Historical bug yield is assignment evidence, not a standing waiver of journey-fi
 ## Agent budgets - include this block verbatim in every subagent prompt
 
 > **Budget.** Context cost grows with every turn you take. Work within these caps and return early rather than push past them:
-> - **Finders:** return after **about 30 simulator interactions or 3 candidate issues**, whichever comes first. Prioritize completing an assigned journey over counting screens. If setup consumes most of the budget, return the exact checkpoint and remaining probes. If you cannot reach an assigned path within 10 actions beyond its documented setup, record it as blocked and move on.
+> - **Finders:** return after **about 30 simulator interactions or 3 candidate issues**, whichever comes first. Each simulator finder owns one primary JID and at most one adjacent branch; complete that journey rather than skimming several. If setup consumes most of the budget, return the exact checkpoint and remaining probes. If you cannot reach an assigned path within 10 actions beyond its documented setup, record it as blocked and move on.
 > - **Verifiers:** the defect repro itself must complete in **15 simulator actions or fewer**, excluding documented fixture setup. If it does not, return `BLOCKED: could not complete repro path` with what you tried.
 > - **Navigation:** use the assigned UDID and the simulator server's find-element call (`ui_find_element`, or describe a point) to locate controls. A full tree dump (`ui_describe_all`) is allowed at most **once per new screen state**, never after every tap.
 > - **Screenshots:** downscale a viewing copy before inspection (`sips -Z 750 <copy>`), retain the original evidence, and view each image at most once. Take screenshots when the track's method requires them or to capture evidence, not as a general navigation aid.
@@ -104,7 +106,7 @@ A Track C finding may be a candidate without driving a simulator only when it in
 
 ## Finder tracks
 
-Hand each finder the budget block, `APPMAP.md`, host priors that apply to it, and only its own track section. Every track reports user impact and map deltas using the common rules above.
+Hand each finder the budget block, an atomic `APPMAP.md` read instruction or full map, host priors that apply to it, and only its own track section. Every track reports user impact and map deltas using the common rules above.
 
 ### Track A - Journey and UI functionality
 
@@ -194,12 +196,14 @@ Before wave 1, ensure `APPMAP.md` contains at least launch/reset instructions, g
 
 Assign one simulator-bound finder per free simulator, and name the one UDID it may drive. With the host protocol's two simulators:
 
-- **SIM-A:** Track A tests and expands the highest-value mapped journeys.
-- **SIM-B:** Track B independently maps screen families and state cues while inspecting representative journeys for operability and consistency.
+- **SIM-A:** Track A tests and expands one highest-value mapped journey.
+- **SIM-B:** Track B inspects one different journey's representative states and screen family for operability and consistency.
 - **Off simulator:** one or two non-overlapping Track C auditors inspect different risk areas or source partitions.
 - **Track D:** interleave only after a simulator frees up and a named journey or symptom warrants measurement.
 
 Merge map deltas after the wave, then assign later waves from uncovered journeys, states, and applicable risks. Give fresh agents a short summary of prior findings, known dead ends, and their exact coverage gap. Never spawn agents merely to keep a simulator busy.
+
+Treat dispatch as atomic: build and inspect the complete prompt before launching the worker, then retain its task ID. If a running worker needs corrected context, message that exact task ID. Never launch a separate "correction" agent. If messaging is unavailable, stop the malformed worker and launch one replacement. After dispatching the wave, emit one compact dispatch delta and stop; do not repeat status narration while workers run.
 
 ## Escalation
 
