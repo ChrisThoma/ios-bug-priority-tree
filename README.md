@@ -29,10 +29,10 @@ Invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-pri
 
 ## What it does
 
-1. **Map** the app in `APPMAP.md` as user goals, entry paths, prerequisites, outcomes, meaningful state branches, test data, and coverage gaps. Screens remain navigation landmarks; they are not the unit of coverage.
+1. **Map** the app in `APPMAP.md` as user goals, entry paths, prerequisites, outcomes, meaningful state branches, test data, and coverage gaps. Existing screen-only maps are migrated before reuse. Screens remain navigation landmarks; they are not the unit of coverage.
 2. **Test** through four stable tracks. Track A completes journeys and verifies data and persistence. Track B inspects visual-functional state and consistency during real journeys. Track C connects source risks and hidden routes to user impact. Track D measures named, high-value journeys when a symptom warrants it.
 3. **Probe** state transitions. A normal journey check follows baseline, action, immediate feedback, settled outcome, cross-view consistency, and return or relaunch, then applies relevant validation, cancel, retry, duplicate-action, interruption, and recovery cases.
-4. **Escalate** from uncovered normal states into applicable permissions, routes, dates, locales, device conditions, motion analysis, and disruptive tests. Accessibility-specific auditing is a late tier unless explicitly requested earlier; using the accessibility tree to drive the simulator is only automation plumbing.
+4. **Escalate** from uncovered normal states into applicable permissions, routes, dates, locales, device conditions, motion analysis, and disruptive tests. Repository priors specialize product facts and known risks without silently replacing journey-first ordering. Accessibility-specific auditing is a late tier unless explicitly requested as a current-hunt objective; using the accessibility tree to drive the simulator is only automation plumbing.
 5. **Demand impact** before counting a finding. A checklist match is not automatically S3, ambiguous product intent is a product question, and ordinary source smells remain leads until runtime behavior confirms them.
 6. **Budget** context with fresh agents, assigned UDIDs, bounded evidence, map deltas, and concise reports.
 7. **Verify** blind. Verifiers receive the defect, repro, app map, build path, and environment, but not source, diffs, history, commit messages, or implementation notes. They repeat the user journey and one named adjacent invariant.

@@ -42,7 +42,7 @@ A finding's expected behavior must be grounded in a visible UI promise, document
 
 ## APPMAP.md: journey and coverage map
 
-Create `APPMAP.md` before wave 1 from bounded source inspection, app metadata, launch behavior, and supplied product information; runtime finders then return concise deltas when they discover new paths or prerequisites. The orchestrator is the single writer.
+Create `APPMAP.md` before wave 1 from bounded source inspection, app metadata, launch behavior, and supplied product information; runtime finders then return concise deltas when they discover new paths or prerequisites. If a map already exists, validate and migrate it to the journey schema below before reuse. Do not treat a screen list as a current coverage map. Preserve still-valid launch, reset, capability, and intentional-behavior facts while removing stale guesses. The orchestrator is the single writer.
 
 Keep `APPMAP.md` compact and include it verbatim in every subagent prompt. It is the coverage map, not a second issue ledger. `ISSUES.md`, when supplied by the host protocol, remains the authority for defect status.
 
@@ -59,6 +59,12 @@ next: highest-value untested state or branch
 Also record exact launch/reset commands, stable screen names, global navigation, test-data sentinels, capabilities, and blocked entry points. A journey is a user goal or meaningful task, not a screen. Visiting a screen does not cover its actions or states. A journey is `core-covered` only after its principal outcome and applicable state, cancellation, error, and persistence behavior have been observed.
 
 Finder reports include only `APPMAP.md` deltas: new or corrected journeys, coverage changes, blockers, and the next useful probe. Do not return a rewritten map. Broad discovery is exhausted only when the known frontier is empty and fresh runtime passes plus bounded source inspection reveal no new meaningful journey or high-risk branch.
+
+## Repository priors and precedence
+
+Use `HUNT.md` or equivalent repository priors to specialize the skill, not to silently replace its purpose. Product facts, known intentional behavior, safety constraints, capability limits, build traps, proven dead ends, and defect-specific verifier conditions take precedence over generic skill assumptions.
+
+Historical bug yield is assignment evidence, not a standing waiver of journey-first ordering. Track weights, wave-one mandates, or instructions that move accessibility-specific checks ahead of core UX/functionality apply only when they are explicitly marked as a current-hunt objective. Otherwise retain them as leads for the applicable escalation tier. When a prior conflicts with the current host objective, the current objective wins; record the conflict rather than combining contradictory instructions.
 
 ## Agent budgets - include this block verbatim in every subagent prompt
 
@@ -311,7 +317,7 @@ Allowed verdicts align with the host ledger:
 - `REJECTED`: the original defect or an equivalent harmful behavior remains.
 - `BLOCKED`: a prerequisite or repro path cannot be completed within the cap.
 
-If the path completes but evidence cannot distinguish fixed from unfixed, return `BLOCKED: inconclusive evidence` and explain what is missing. For `VERIFIED`, rerun the exact repro, describe the observed state at the former defect location, and check one named adjacent invariant such as cancellation, repeated action, persistence, or the equivalent control elsewhere.
+These are verifier verdicts. A verifier's `REJECTED` means the attempted fix failed and the confirmed issue returns for another fix; it is distinct from rejecting an unconfirmed candidate as intentional, duplicate, unsupported, or false positive. If the path completes but evidence cannot distinguish fixed from unfixed, return `BLOCKED: inconclusive evidence` and explain what is missing. For `VERIFIED`, rerun the exact repro, describe the observed state at the former defect location, and check one named adjacent invariant such as cancellation, repeated action, persistence, or the equivalent control elsewhere.
 
 - **Track B fixes:** capture fresh evidence appropriate to the claim and describe the relevant pixels and behavior. "Looks fixed" is not a verdict.
 - **Track D fixes:** repeat the same measurement under comparable conditions and quote all runs, median, and worst case against the original values.
