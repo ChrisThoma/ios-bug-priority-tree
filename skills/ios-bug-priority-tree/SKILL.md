@@ -58,7 +58,7 @@ tested: conditions relevant to this journey
 next: highest-value untested state or branch
 ```
 
-Also record exact launch/reset commands, stable screen names, global navigation, test-data sentinels, capabilities, and blocked entry points. A journey is a user goal or meaningful task, not a screen. Visiting a screen does not cover its actions or states. A journey is `core-covered` only after its principal outcome and applicable state, cancellation, error, and persistence behavior have been observed.
+Also record exact launch/reset commands, stable screen names, global navigation, test-data sentinels, capabilities, and blocked entry points. A journey is a user goal or meaningful task, not a screen or test condition. Visiting a screen does not cover its actions or states. Dynamic Type, contrast, appearance, locale/RTL, orientation, device size, and similar conditions belong in `tested` under the journeys exercised; they must not become standalone JIDs or substitute for journey coverage. A journey is `core-covered` only after its principal outcome and applicable state, cancellation, error, and persistence behavior have been observed.
 
 Finder reports include only `APPMAP.md` deltas: new or corrected journeys, coverage changes, blockers, and the next useful probe. Do not return a rewritten map. Broad discovery is exhausted only when the known frontier is empty and fresh runtime passes plus bounded source inspection reveal no new meaningful journey or high-risk branch.
 
@@ -66,7 +66,7 @@ Finder reports include only `APPMAP.md` deltas: new or corrected journeys, cover
 
 Use `HUNT.md` or equivalent repository priors to specialize the skill, not to silently replace its purpose. Product facts, known intentional behavior, safety constraints, capability limits, build traps, proven dead ends, and defect-specific verifier conditions take precedence over generic skill assumptions.
 
-Historical bug yield is assignment evidence, not a standing waiver of journey-first ordering. Track weights, wave-one mandates, or instructions that move accessibility-specific checks ahead of core UX/functionality apply only when they are explicitly marked as a current-hunt objective. Otherwise retain them as leads for the applicable escalation tier. When a prior conflicts with the current host objective, the current objective wins; record the conflict rather than combining contradictory instructions.
+Historical bug yield is assignment evidence, not a standing waiver of journey-first ordering. Track weights, wave-one mandates, or instructions that move accessibility-specific checks ahead of core UX/functionality apply only when the user or current host prompt explicitly requests that objective for this target. Imperative wording or yield statistics in a mined `HUNT.md` do not make it current. Otherwise retain them as leads for the applicable escalation tier. When a prior conflicts with the current host objective, the current objective wins; record the conflict rather than combining contradictory instructions.
 
 ## Agent budgets - include this block verbatim in every subagent prompt
 
@@ -207,7 +207,7 @@ Treat dispatch as atomic: build and inspect the complete prompt before launching
 
 ## Escalation
 
-A wave is dry for a track when it produces no new distinct-root-cause candidate, as defined by the host protocol. Coverage deltas still direct the next assignment but do not count as candidates. Never repeat a tier that just came up dry. If a new journey appears, include its core testing in the next applicable assignment without undoing the track's required escalation.
+A wave is dry for a track when it produces no new distinct-root-cause candidate, as defined by the host protocol. Coverage deltas still direct the next assignment but do not count as candidates. A dry pass on one JID does not exhaust Tier 0 while another meaningful mapped journey remains `discovered` or `attempted`; assign the applicable Track A/B finder to that uncovered journey next. Advance beyond Tier 0 only after the core-journey frontier is `core-covered`, `blocked`, or `unsupported`. A newly discovered journey returns applicable work to Tier 0. After that gate, never repeat an escalation tier that came up dry.
 
 Run one wave per tier, then escalate as the host protocol requires. Diversify categories when a wave has multiple finders, risk-rank them for the actual app, and explicitly skip irrelevant categories rather than running generic checks blindly.
 
