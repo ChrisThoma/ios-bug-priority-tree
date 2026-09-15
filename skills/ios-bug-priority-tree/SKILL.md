@@ -72,7 +72,9 @@ Historical bug yield is assignment evidence, not a standing waiver of journey-fi
 
 > **Budget.** Context cost grows with every turn you take. Work within these caps and return early rather than push past them:
 > - **Finders:** return after **about 30 simulator interactions or 3 candidate issues**, whichever comes first. Each simulator finder owns one primary JID and at most one adjacent branch; complete that journey rather than skimming several. If setup consumes most of the budget, return the exact checkpoint and remaining probes. If you cannot reach an assigned path within 10 actions beyond its documented setup, record it as blocked and move on.
-> - **Verifiers:** the defect repro itself must complete in **15 simulator actions or fewer**, excluding documented fixture setup. If it does not, return `BLOCKED: could not complete repro path` with what you tried.
+> - **Hard stop:** at **60 tool calls total** (finders) or **40** (verifiers), stop and return the report with whatever you have, even mid-probe. Count every call. No finding justifies passing this line; a partial report is the expected outcome, not a failure.
+> - **Setup cost:** if reaching a required state (a large arrangement, many records, a full library) would take more than **20 actions** beyond the documented reset, do not tap it into existence. Return `FIXTURE NEEDED: <state>` with the exact file or data shape, so the host can inject it into the app container before the next pass.
+> - **Verifiers:** the defect repro itself must complete in **15 simulator actions or fewer**, excluding documented fixture setup. If it does not, return `BLOCKED: could not complete repro path` with what you tried. Do not keep exploring to make the repro work.
 > - **Navigation:** use the assigned UDID and the simulator server's find-element call (`ui_find_element`, or describe a point) to locate controls. A full tree dump (`ui_describe_all`) is allowed at most **once per new screen state**, never after every tap.
 > - **Screenshots:** downscale a viewing copy before inspection (`sips -Z 750 <copy>`), retain the original evidence, and view each image at most once. Take screenshots when the track's method requires them or to capture evidence, not as a general navigation aid.
 > - **Evidence:** return one primary artifact per finding. A bounded before/after pair or short video/contact sheet is allowed when a single image cannot prove the claim.
@@ -106,7 +108,7 @@ A Track C finding may be a candidate without driving a simulator only when it in
 
 ## Finder tracks
 
-Hand each finder the budget block, an atomic `APPMAP.md` read instruction or full map, host priors that apply to it, and only its own track section. Every track reports user impact and map deltas using the common rules above.
+Hand each finder the budget block, an atomic `APPMAP.md` read instruction or full map, host priors that apply to it, and only its own track section. Before dispatch, cost the assignment against the budget: a probe whose setup alone exceeds the finder cap is a fixture task, not a finder task. Build the fixture (a saved document, seeded store, or container file) with an off-simulator worker or a shell command, install it, and only then assign the probe. Never write a prompt that asks a finder to construct a large state by hand. Every track reports user impact and map deltas using the common rules above.
 
 ### Track A - Journey and UI functionality
 
