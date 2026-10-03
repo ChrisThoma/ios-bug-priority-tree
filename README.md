@@ -34,8 +34,8 @@ Invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-pri
 3. **Probe** state transitions. A normal journey check follows baseline, action, immediate feedback, settled outcome, cross-view consistency, and return or relaunch, then applies relevant validation, cancel, retry, duplicate-action, interruption, and recovery cases.
 4. **Escalate** from uncovered normal states into applicable permissions, routes, dates, locales, device conditions, motion analysis, and disruptive tests. Repository priors specialize product facts and known risks without silently replacing journey-first ordering. Accessibility-specific auditing is a late tier unless explicitly requested as a current-hunt objective; using the accessibility tree to drive the simulator is only automation plumbing.
 5. **Demand impact** before counting a finding. A checklist match is not automatically S3, ambiguous product intent is a product question, and ordinary source smells remain leads until runtime behavior confirms them.
-6. **Budget** context with fresh agents, assigned UDIDs, bounded evidence, map deltas, and concise reports.
-7. **Verify** blind. Verifiers receive the defect, repro, app map, build path, and environment, but not source, diffs, history, commit messages, or implementation notes. They repeat the user journey and one named adjacent invariant.
+6. **Budget** context with fresh agents, assigned UDIDs, bounded evidence, map deltas, and concise reports. Workers act and look in one shell call and report their own interaction and tool-call tally; the orchestrator checks it against the cap.
+7. **Verify** blind. Verifiers receive the defect, repro, app map, build path, and environment, but not source, diffs, history, commit messages, or implementation notes. The map carries no build revisions or fix hashes, so verifiers read the same map as everyone else. They repeat the user journey on the device class where the defect was found and check one named adjacent invariant.
 
 See [SKILL.md](skills/ios-bug-priority-tree/SKILL.md) for the full tree.
 

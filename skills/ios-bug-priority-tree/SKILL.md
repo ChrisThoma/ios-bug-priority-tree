@@ -31,12 +31,14 @@ Every simulator-bound prompt names exactly one UDID. Every simulator and `simctl
 
 Before hunting, establish what can be inferred from the repository and host prompt:
 
-- Supported target, OS, orientations, app capabilities, account roles, and integrations.
+- Supported target, deployment target, installed simulator runtimes, orientations, app capabilities, account roles, and integrations.
 - Test account, backend, fixtures, reset method, and whether destructive actions are safe.
 - Product promises from requirements, tests, visible UI copy, and established behavior elsewhere in the app.
 - Known limitations, unsupported conditions, and environment constraints.
 
 Use sandbox accounts and synthetic data. Do not make real purchases, mutate production data, expose credentials or personal data in evidence, or perform irreversible external actions without explicit authorization. Host-wide network changes and other disruptive manual conditions require user approval and a restoration plan.
+
+If the simulators recorded in the map no longer exist, recreate them under the same names and device types, record the new UDIDs and runtime, and say so in the first dispatch delta. If no installed runtime is within one major version of the deployment target, mark minimum-OS coverage `unsupported` in the map and tell the user once before wave 1: fixes that rely on newer-OS APIs cannot be verified for the oldest supported users on this machine.
 
 A finding's expected behavior must be grounded in a visible UI promise, documented requirement, data invariant, established equivalent behavior, or strong iOS convention. If the expected behavior is genuinely ambiguous, report a `PRODUCT QUESTION` lead rather than a candidate. Unreachable functionality is a coverage gap, not a defect, unless its entry point should be available to the tested user.
 
@@ -44,9 +46,9 @@ A finding's expected behavior must be grounded in a visible UI promise, document
 
 Create `APPMAP.md` before wave 1 from bounded source inspection, app metadata, launch behavior, and supplied product information; runtime finders then return concise deltas when they discover new paths or prerequisites. If a map already exists, validate and migrate it to the journey schema below before reuse. Do not treat a screen list as a journey map. The orchestrator is the single writer.
 
-Keep `APPMAP.md` compact and structural. It describes the app, not the hunt: it holds no coverage state, issue numbers, verdicts, wave status, or hunt-relative wording such as "this hunt" or "this session." Coverage lives in the ledger's `## Coverage` section (below); defect status lives in the ledger's issue rows. A map may cite a prior hunt's finding only as `round-N #M` for an intentional-behavior or dead-lead note. One Target per map; never widen the target mid-hunt.
+Keep `APPMAP.md` compact and structural. It describes the app, not the hunt: it holds no coverage state, issue numbers, verdicts, wave status, installed-build revisions, fix commit hashes, or hunt-relative wording such as "this hunt" or "this session." Coverage lives in the ledger's `## Coverage` section and installed builds in its `## Builds` section (both below); defect status lives in the ledger's issue rows. Blind verifiers read the same map as every other worker, so anything a verifier must not see does not belong in it. A map may cite a prior hunt's finding only as `round-N #M` for an intentional-behavior or dead-lead note. One Target per map; never widen the target mid-hunt.
 
-When migrating or trimming a map, these survive every migration and are restated, never deleted: launch/reset commands, fixtures and test-data sentinels, capabilities and blocked entry points, intentional-behavior notes, tooling caveats and traps, `unsupported` markers, dead leads that were investigated and disproven, and the installed source revision line. Restamp the revision line to the current HEAD after each fix install; a stale stamp is corrected, not removed.
+When migrating or trimming a map, these survive every migration and are restated, never deleted: launch/reset commands, fixtures and test-data sentinels, capabilities and blocked entry points, intentional-behavior notes, tooling caveats and traps, `unsupported` markers, and dead leads that were investigated and disproven. An installed-revision line found in an existing map moves to the ledger's `## Builds` section.
 
 Give every subagent the map atomically. In a shared workspace, prefer an explicit first action to read the exact repo-root `APPMAP.md`; otherwise paste its full contents. Never use placeholders, summaries, ellipses, or "same as above." Before dispatch, reject any prompt containing an unexpanded map/track placeholder. A worker must read the map before simulator or source work and identify its assigned JID.
 
@@ -58,7 +60,7 @@ states/branches: success, validation, cancel, loading, empty, error, retry, comp
 notes: intentional behavior, traps, and launch arguments specific to this journey
 ```
 
-Also record exact launch/reset commands, the per-simulator environment baseline (locale, appearance, content size), stable screen names, global navigation, test-data sentinels, capabilities, and blocked entry points. A journey is a user goal or meaningful task, not a screen or test condition. Visiting a screen does not cover its actions or states. Dynamic Type, contrast, appearance, locale/RTL, orientation, device size, and similar conditions are never standalone JIDs.
+Also record exact launch/reset commands, the per-simulator environment baseline (locale, appearance, content size) with the commands that read each value back from inside the simulator (a host-side `defaults` read reports the Mac, not the simulator), the data-container reset to a named fixture state, the fixture import command and file shape, failure-injection recipes that probes reuse (an unwritable store, a malformed file), stable screen names, global navigation, test-data sentinels, capabilities, and blocked entry points. A journey is a user goal or meaningful task, not a screen or test condition. Visiting a screen does not cover its actions or states. Dynamic Type, contrast, appearance, locale/RTL, orientation, device size, and similar conditions are never standalone JIDs.
 
 Finder reports include only map deltas (new or corrected journeys, prerequisites, traps, blockers) and coverage deltas (below). Do not return a rewritten map. Broad discovery is exhausted only when the known frontier is empty and fresh runtime passes plus bounded source inspection reveal no new meaningful journey or high-risk branch.
 
@@ -74,6 +76,16 @@ States: `discovered | attempted | core-covered | blocked | unsupported`. Conditi
 
 The section is created at turn 1 with every mapped journey `discovered`, carried unchanged on resume, and never copied into `APPMAP.md`. Finder reports return coverage deltas as `J<n>: <state> | tested: +<condition> | next: <probe>`; the orchestrator applies them after each wave. To keep the host dashboard parser safe: coverage rows never carry a `status:` label, never sit in a markdown table, and never contain a literal `|` inside prose.
 
+## Builds: installed revisions in the ledger
+
+Which build each simulator carries is hunt state too. After `## Coverage`, the ledger keeps a `## Builds` section with one line per simulator slot:
+
+```
+SIM-A | build: build/Fix3/Chiptune.app | revision: 89b97cd
+```
+
+Update the line whenever a build is installed on that slot. Every simulator dispatch states the app path installed on its UDID from this section; finder and fixer prompts may add the revision, verifier prompts carry the path only. Never describe a build as current unless its revision matches HEAD. When a fix is verified, install that build on the other simulator before its next finder, so finders do not hunt on a build that still has fixed defects. The same parser rules apply as for coverage rows: no `status:` label, no markdown table, no literal `|` in prose.
+
 ## Repository priors and precedence
 
 Use `HUNT.md` or equivalent repository priors to specialize the skill, not to silently replace its purpose. Product facts, known intentional behavior, safety constraints, capability limits, build traps, proven dead ends, and defect-specific verifier conditions take precedence over generic skill assumptions.
@@ -82,20 +94,25 @@ Priors documents must carry a fixer-facing section: build and test traps, CI gat
 
 Historical bug yield is assignment evidence, not a standing waiver of journey-first ordering. Track weights, wave-one mandates, or instructions that move accessibility-specific checks ahead of core UX/functionality apply only when the user or current host prompt explicitly requests that objective for this target. Imperative wording or yield statistics in a mined `HUNT.md` do not make it current. Otherwise retain them as leads for the applicable escalation tier. When a prior conflicts with the current host objective, the current objective wins; record the conflict rather than combining contradictory instructions.
 
+A priors document that contains wave mandates, lacks a fixer-facing section, or cites prior issues as bare `#N` was mined under older rules. Follow this skill's ordering, forward its build traps and tar pits to fixers anyway, read its bare `#N` as a prior round, and tell the user once, in the first dispatch delta, that the priors need re-mining. Do not restamp such a document's header to the current HEAD; a fresh stamp on old content hides the staleness.
+
 ## Agent budgets - include this block verbatim in every subagent prompt
 
 > **Budget.** Context cost grows with every turn you take. Work within these caps and return early rather than push past them:
 > - **Finders:** return after **about 30 simulator interactions or 3 candidate issues**, whichever comes first. Each simulator finder owns one primary JID and at most one adjacent branch; complete that journey rather than skimming several. If setup consumes most of the budget, return the exact checkpoint and remaining probes. If you cannot reach an assigned path within 10 actions beyond its documented setup, record it as blocked and move on.
-> - **Hard stop:** at **60 tool calls total** (finders) or **40** (verifiers), stop and return the report with whatever you have, even mid-probe. Count every call. No finding justifies passing this line; a partial report is the expected outcome, not a failure.
+> - **Hard stop:** at **60 tool calls total** (finders) or **40** (verifiers and confirm agents), stop and return the report with whatever you have, even mid-probe. Keep a running tally of every call as you work, not an estimate at the end. No finding justifies passing this line; a partial report is the expected outcome, not a failure.
 > - **Setup cost:** if reaching a required state (a large arrangement, many records, a full library) would take more than **20 actions** beyond the documented reset, do not tap it into existence. Return `FIXTURE NEEDED: <state>` with the exact file or data shape, so the host can inject it into the app container before the next pass.
-> - **Verifiers:** the defect repro itself must complete in **15 simulator actions or fewer**, excluding documented fixture setup. If it does not, return `BLOCKED: could not complete repro path` with what you tried. Do not keep exploring to make the repro work.
-> - **Fixers:** return after **80 tool calls or 25 minutes** with the diff, the test result, and what is still failing. Do not keep iterating past that line; a partial fix with an honest status beats a silent overrun.
+> - **Verifiers and confirm agents:** the defect repro itself must complete in **15 simulator actions or fewer**, excluding documented fixture setup. If it does not, return `BLOCKED: could not complete repro path` with what you tried. Do not keep exploring to make the repro work.
+> - **Fixers:** return after **80 tool calls or 25 minutes** with the diff, the test result, and what is still failing. Do not keep iterating past that line; a partial fix with an honest status beats a silent overrun. Repair the behavior within the surfaces named in the prompt. If the fix instead clamps, scales down, hides, or disables something, or depends on an API newer than the deployment target, say so in the report and name who loses what. Smoke-test on the device where the defect appears, or state that you did not.
 > - **Navigation:** use the assigned UDID and the simulator server's find-element call (`ui_find_element`, or describe a point) to locate controls. A full tree dump (`ui_describe_all`) is allowed at most **once per new screen state**, never after every tap.
-> - **Screenshots:** downscale a viewing copy before inspection (`sips -Z 750 <copy>`), retain the original evidence, and view each image at most once. Take screenshots when the track's method requires them or to capture evidence, not as a general navigation aid.
+> - **Act and look in one call:** when an action needs a visual check, put the action, a short wait, the screenshot, and the downscale in a single shell command (for example `idb ui tap --udid <UDID> <x> <y>; sleep 1; xcrun simctl io <UDID> screenshot <orig>.png; sips -Z 750 <orig>.png --out <view>.png`), then view the downscaled copy once. A separate tool call for each of tap, screenshot, downscale, and view spends four calls per interaction and will not fit the hard stop.
+> - **Screenshots:** retain the original evidence and view each image at most once. Take screenshots when the track's method requires them or to capture evidence, not as a general navigation aid.
 > - **Evidence:** return one primary artifact per finding. A bounded before/after pair or short video/contact sheet is allowed when a single image cannot prove the claim.
-> - **Report:** return a structured list with at most 3 candidates. For each: journey ID, preconditions, exact repro, expected basis, expected vs actual, user impact, reproduction count when practical, evidence, severity guess, and suspected duplicate. Add compact map and coverage deltas and worthwhile leads. Keep the report at **25 lines or fewer** and do not narrate process or dead ends.
+> - **Report:** return a structured list with at most 3 candidates. For each: journey ID, preconditions, exact repro, expected basis, expected vs actual, user impact, reproduction count when practical, evidence, severity guess, and suspected duplicate. Add compact map and coverage deltas and worthwhile leads. Keep the report at **25 lines or fewer** and do not narrate process or dead ends. End it with `interactions: <n> | tool calls: <n>` from your tally. Return once: leave no background sleep, monitor, or shell running after the report.
 
 The host sets the model explicitly on every dispatch (its default worker model for finders, verifiers, and first fixes; its escalation model for refixes). A dispatch that leaves the model unset has not applied the host's model policy.
+
+Workers cannot be stopped mid-run on a call count, so the orchestrator checks afterwards: compare the tool-use count on each completion against the cap for that role. When a worker overran, name it in the next dispatch delta and narrow the next assignment for that journey (fewer branches, or a fixture built first) rather than repeating the same scope.
 
 ## Severity ladder
 
@@ -106,7 +123,7 @@ Assign severity from demonstrated user impact, not from the finder track or chec
 - **S3 - material UX failure:** the task remains possible, but the app misleads the user, obscures necessary state, behaves inconsistently enough to cause a wrong action, or cannot be operated reliably. Examples include indistinguishable loading/error/empty states, absent feedback that leaves a consequential action ambiguous, keyboard obstruction, meaningful truncation, recoverable lost progress, or an unreliable control.
 - **S4 - polish:** visible inconsistency or aesthetic degradation that does not obscure meaning, change behavior, mislead the user, or reduce reliable operation.
 
-Record reproduction confidence, journey importance, recoverability, and affected conditions separately from severity. A rubric match is not automatically S3: state the actual user consequence. The host goal may count S1-S3 plus at most two S4 findings. Deduplicate by demonstrated behavior and triggering condition first; merge by root cause only when evidence supports it.
+Record reproduction confidence, journey importance, recoverability, and affected conditions separately from severity. A rubric match is not automatically S3: state the actual user consequence. Severity is fixed at confirmation from that stated consequence. Raising it later requires new evidence recorded in the issue row; how close the hunt is to its goal or turn limit is never a reason. The host goal may count S1-S3 plus at most two S4 findings. Deduplicate by demonstrated behavior and triggering condition first; merge by root cause only when evidence supports it.
 
 ## Candidate and evidence rules
 
@@ -129,7 +146,11 @@ A Track C finding may be a candidate without driving a simulator only when it in
 
 ## Finder tracks
 
-Hand each finder the budget block, an atomic `APPMAP.md` read instruction or full map, host priors that apply to it, and only its own track section. Before dispatch, cost the assignment against the budget: a probe whose setup alone exceeds the finder cap is a fixture task, not a finder task. Build the fixture (a saved document, seeded store, or container file) with an off-simulator worker or a shell command, install it, and only then assign the probe. Never write a prompt that asks a finder to construct a large state by hand. Every track reports user impact, map deltas, and coverage deltas using the common rules above.
+Hand each finder the budget block, an atomic `APPMAP.md` read instruction or full map, host priors that apply to it, and only its own track section. Before dispatch, cost the assignment against the budget: a probe whose setup alone exceeds the finder cap is a fixture task, not a finder task. Build the fixture (a saved document, seeded store, or container file) with an off-simulator worker or a shell command, install it, and only then assign the probe. Never write a prompt that asks a finder to construct a large state by hand.
+
+Prompts describe what to exercise and observe, not what the app must do. Any "must", "should", or "must not" in a finder prompt has to restate a promise from the map, the priors, or visible UI copy; otherwise phrase the probe as "report what X does." A candidate whose expected basis traces only to the orchestrator's own prompt wording is rejected with that cause named, and the cause is recorded for the priors' orchestrator section.
+
+Every track reports user impact, map deltas, and coverage deltas using the common rules above.
 
 ### Track A - Journey and UI functionality
 
@@ -217,7 +238,7 @@ footprint <pid>
 
 Before wave 1, ensure `APPMAP.md` contains at least launch/reset instructions, global navigation, known journeys, prerequisites, and test data. It may be source-derived initially. Runtime discoveries refine it.
 
-Before wave 1 and after every worker, assert each simulator's environment baseline and restore it when it drifts: locale and language, appearance, content size, status-bar overrides, and any privacy grants a worker changed. Record the baseline commands in the map's launch/reset block. A worker that inherits a contaminated simulator produces false positives that look exactly like defects.
+Before wave 1 and after every worker, assert each simulator's environment baseline and restore it when it drifts: locale and language, appearance, content size, status-bar overrides, and any privacy grants a worker changed. Record the baseline commands in the map's launch/reset block. A worker that inherits a contaminated simulator produces false positives that look exactly like defects. The app's data container is part of the baseline: each finder starts from the map's documented reset to a named fixture state, not from whatever the previous worker left behind.
 
 Assign one simulator-bound finder per free simulator, and name the one UDID it may drive. With the host protocol's two simulators:
 
@@ -228,7 +249,7 @@ Assign one simulator-bound finder per free simulator, and name the one UDID it m
 
 Merge map and coverage deltas after the wave, then assign later waves from uncovered journeys, states, and applicable risks in the ledger's coverage section. Give fresh agents a short summary of prior findings, known dead ends, and their exact coverage gap. Never spawn agents merely to keep a simulator busy, but while a fixer or verifier occupies one simulator and the host's spawn condition holds, keep the free simulator on the next uncovered journey rather than idle.
 
-Treat dispatch as atomic: build and inspect the complete prompt before launching the worker, then retain its task ID. If a running worker needs corrected context, message that exact task ID. Never launch a separate "correction" agent. If messaging is unavailable, stop the malformed worker and launch one replacement. After dispatching the wave, emit one compact dispatch delta and stop; do not repeat status narration while workers run.
+Treat dispatch as atomic: build and inspect the complete prompt before launching the worker, then retain its task ID. If a running worker needs corrected context, message that exact task ID. Never launch a separate "correction" agent. If messaging is unavailable, stop the malformed worker and launch one replacement. Each finder prompt and the dispatch delta name the escalation tier of the assignment; above Tier 0 they also state the gate evidence (every core journey `core-covered`, `blocked`, or `unsupported`). After dispatching the wave, emit one compact dispatch delta and stop; do not repeat status narration while workers run.
 
 ## Escalation
 
@@ -301,6 +322,7 @@ Terminate before applying launch-only conditions. Restore and verify the baselin
    ```
    xcrun simctl launch <UDID> <bundle-id> -NSDoubleLocalizedStrings YES
    ```
+   The flag doubles whole format strings, so a one-argument format shows leaked specifier fragments (`lld`, `@`). That is a property of the pseudo-locale, not a defect; only clipping, wrapping that changes meaning, and lost tap targets count.
 2. Status-bar extremes where layout uses the top safe area:
    ```
    xcrun simctl status_bar <UDID> override --time "23:59" --batteryState charging --batteryLevel 4
@@ -336,7 +358,7 @@ Track C runs once per non-overlapping source partition and re-runs when new map 
 
 ## Blind verification addendum
 
-Verifiers receive the defect description, exact repro, expected behavior, target build path, `APPMAP.md`, assigned UDID, and required environment or measurement procedure. Explicitly forbid reading source code, diffs, git history, commit messages, or implementation notes. All verdict evidence comes from driving the installed build.
+Verifiers receive the defect description, exact repro, expected behavior, target build path, `APPMAP.md`, assigned UDID, and required environment or measurement procedure. Write the expected behavior from the original finding's expected basis, never from the fixer's report: describing what the fix now shows tells the verifier what to look for. Name builds neutrally; the prompt carries no fix hash, fix approach, or source type name that the map does not already use, and any coordinates in it come from the verifier's own device. Explicitly forbid reading source code, diffs, git history, commit messages, or implementation notes. All verdict evidence comes from driving the installed build.
 
 Before replay, record the tested app path/build identity, target, simulator UDID, OS, fixture/account, and relevant condition. Restore the original preconditions. Use a fresh mid-tier-or-better simulator agent and the budget block's verifier cap.
 
@@ -348,6 +370,9 @@ Allowed verdicts align with the host ledger:
 
 These are verifier verdicts. A verifier's `REJECTED` means the attempted fix failed and the confirmed issue returns for another fix; it is distinct from rejecting an unconfirmed candidate as intentional, duplicate, unsupported, or false positive. If the path completes but evidence cannot distinguish fixed from unfixed, return `BLOCKED: inconclusive evidence` and explain what is missing. For `VERIFIED`, rerun the exact repro, describe the observed state at the former defect location, and check one named adjacent invariant such as cancellation, repeated action, persistence, or the equivalent control elsewhere.
 
+- **Device and condition:** verify on the device class where the defect was found, and on the smallest supported width for any layout or truncation fix. If that simulator is busy, wait for it rather than verify elsewhere.
+- **Motion claims:** a fix described as removing a jump, jitter, flash, or lag needs a short video or contact sheet; still screenshots cannot support it.
+- **Residuals:** when the fixer reported an OS-availability gate, an untested device, or a capability-reducing change, a passing verdict is recorded as `VERIFIED` with the residual stated in the row, and the uncovered case is added to that journey's `next:` in coverage.
 - **Track B fixes:** capture fresh evidence appropriate to the claim and describe the relevant pixels and behavior. "Looks fixed" is not a verdict.
 - **Track D fixes:** repeat the same measurement under comparable conditions and quote all runs, median, and worst case against the original values.
 - **Timing pitfall:** the harness-artifact rule in "Candidate and evidence rules" applies to verifiers too. If using `idb`, set its assigned UDID, warm it with a throwaway describe command, bracket the tap and recording start with wall-clock timestamps, and calculate the tap offset. If timing worsens unexpectedly, investigate measurement error and host load before claiming regression.
