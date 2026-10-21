@@ -6,6 +6,10 @@ Point a few agents at an app and tell them to "find bugs" and you get one wave o
 
 Severity runs S1 to S4: S1 is catastrophic harm, S2 is task failure or a harmful result, S3 is a material UX failure, and S4 is pure polish. Severity follows the demonstrated user consequence rather than the audit category. S1 through S3 count toward the goal; at most two S4 findings may count so agents cannot satisfy a hunt with alignment nits.
 
+For Android apps, use its sibling, [android-bug-priority-tree](https://github.com/ChrisThoma/android-bug-priority-tree). The method, track interface, ledger format, and severity ladder are the same, so one host loop can drive either.
+
+More about the skill, including an example goal prompt: [individuation.dev/projects/ios-bug-priority-tree](https://individuation.dev/projects/ios-bug-priority-tree/).
+
 ## Install
 
 With the skills CLI (works for Claude Code, Cursor, Codex, and others):
