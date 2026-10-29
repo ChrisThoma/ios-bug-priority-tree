@@ -41,9 +41,12 @@ Target: iPhone. First: load ios-bug-priority-tree; compose waves, prompts, budge
 You can also invoke it directly with `/ios-bug-priority-tree` in Claude Code or `$ios-bug-priority-tree` in Codex.
 
 <details>
-<summary>The full goal prompt I use for iPhone hunts</summary>
+<summary>Goal prompt: iPhone and iPad</summary>
 
-It sets the target count and turn limit, the ledger format and the find, confirm, fix and verify loop, and leaves the testing method to the skill.
+Paste after `/goal` in Claude Code. It sets the target count and turn limit, the ledger format and the find, confirm, fix and verify loop, and leaves the testing method to the skill.
+
+- Use when: the target is an iPhone or iPad simulator.
+- Simulators: two per target, an SE-class iPhone and a large one, or two iPad sizes.
 
 ```text
 10 distinct app issues fixed and independently verified, or an honest final tally after 40 turns.
@@ -69,9 +72,16 @@ Done: `10/10 VERIFIED` + hashes, or turn-40 tally, with category mix, false posi
 </details>
 
 <details>
-<summary>The goal prompt I use for iPhone Duo hunts</summary>
+<summary>Goal prompt: iPhone Duo</summary>
 
-It uses [devicehubctl](https://github.com/ChrisThoma/devicehubctl) to fold the simulator and to read and tap both of the Duo's displays, which idb can't, and tests each core journey closed, open and with a fold partway through.
+Paste after `/goal` in Claude Code.
+
+- Use when: the target is an iPhone Duo simulator.
+- Requires: [devicehubctl](https://github.com/ChrisThoma/devicehubctl), to fold the simulator and to read and tap both displays. idb can't read the Duo's screen.
+- Simulators: two Duos, one closed and one open.
+- Tests each core journey closed, open, and with a fold partway through. Tests Split View once.
+- First escalation wave: the largest accessibility text size on the outer display, the half-open pose, and the open Duo rotated.
+- Verifies each fix across a fold.
 
 ```text
 10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
