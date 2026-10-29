@@ -68,6 +68,34 @@ Done: `10/10 VERIFIED` + hashes, or turn-40 tally, with category mix, false posi
 
 </details>
 
+<details>
+<summary>The goal prompt I use for iPhone Duo hunts</summary>
+
+It uses [devicehubctl](https://github.com/ChrisThoma/devicehubctl) to fold the simulator and to read and tap both of the Duo's displays, which idb can't, and tests each core journey closed, open and with a fold partway through.
+
+```text
+10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
+Target: Duo. One Target per ledger; never widen mid-hunt.
+First: load ios-bug-priority-tree and devicehubctl; compose the hunt per the tree.
+Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one cycle (apply results, one dispatch), not one completion.
+Simulators: reuse, never duplicate. Duos: BugHunt-<App>-Duo-A (closed) and -B (open). Each sim agent: ONE recorded UDID, loads devicehubctl (not idb/ui_*). Assert/restore skill baseline + pose/rotation before wave 1 and after each worker.
+Pose is a condition, not a JID. Test core journeys closed, open, and a pose change mid-task (state survives); Split View once; split failure = blocked. Track C each wave, new partition: fold-rebuilt modes/dialogs/scroll, then run endings. Tier 1 (requested): AX-XXXL on outer, partial, rotated open; stop rule needs it dry.
+APPMAP.md: structural only per skill; keep dead leads, traps, fixtures.
+HUNT.md: read before wave 1. Finders get Everyone + matching (forward); fixers get Fixers (forward); verifiers NEVER get HUNT, hypotheses, fix hashes/history. Never restamp.
+Agents: set model on every dispatch: sonnet; opus after a rejected fix or 3 stuck turns. You never write app code, drive sims, read source/diffs/build logs, or build; fixers build+test (own derivedData), commit, install, report diff + pass/fail. Every prompt, fixers too, carries the skill budget block; else reject. Evidence: git-ignored `.qa/hunt-<date>/`. Caps: finders 12 min, verifiers 8, fixers 25; use what they returned. While a fixer/verifier runs and the spawn rule holds, keep the free sim on the next uncovered journey. One dispatch delta, then stop; wake on completions only; no heartbeat under 30 min, agent listing, or waiting narration.
+ISSUES.md: header `Turn N of 40 · Duo`, then a `Slot | Name | UDID | Pose` sims table. One labelled pipe line per issue: `#N | JID | description: | expected basis: | repro: | ratio: | impact: | evidence: | S1-S4 | track: | duplicate/root: | fix: | commit: | status:`, verdict first in status (CANDIDATE/CONFIRMED/FIXED-UNVERIFIED/VERIFIED/REJECTED/BLOCKED); duplicate/over-cap S4 = REJECTED + reason. Repro names pose. No `|` in prose, no markdown table. Edit rows in place; never re-read the ledger. Then `## Coverage`: one `J<n> | coverage: | tested: | next:` row per journey, all `discovered` at turn 1, never a `status:` label. Then `## Builds`: `<slot> | build: | revision:` per install. No chronology/interim tallies.
+Count distinct roots per skill: S1-S3, at most 2 S4.
+Protocol:
+1. FIND: one skill wave (one sim finder/free sim + off-sim auditors). Each sim finder: one primary JID + poses, map-read instruction, coverage row, own track, <=10 prior lines. Spawn iff `CANDIDATE + CONFIRMED + FIXED-UNVERIFIED < 10 - VERIFIED`; at equality a free sim may take one uncovered core journey.
+2. CONFIRM per skill: independent repro (confirm agent or finder 2/2). Harness/contamination causes -> map tooling caveats.
+3. FIX: one worker/CONFIRMED issue, cheapest first; send description, repro, file pointers, APPMAP. Worker commits `fix #N: <description>`, smoke-tests in the failing pose; never patch. 3 stuck turns = BLOCKED/replace.
+4. VERIFY: app code committed (ledger/map/HUNT edits may be pending). Fresh verifier gets blind-addendum inputs (one UDID), Target. Exact repro + a fold across the fixed state. Quote verdict. BLOCKED = replace.
+5. Verifier REJECTED = fix failed: CONFIRMED -> refix -> fresh verifier; two = BLOCKED/replace. CONFIRM-stage REJECTED is final.
+Done: `10/10 VERIFIED` + hashes, or tally + stop reason, with false positives + causes, blocked groups, coverage by pose. Then append rejection causes, tar pits, verifier conditions to HUNT.md.
+```
+
+</details>
+
 ## How it works
 
 1. Map the app in `APPMAP.md` as user journeys: goals, entry paths, prerequisites, expected outcomes, the state branches that matter, test data and reset commands. Screens are landmarks, not the unit of coverage.
@@ -86,7 +114,7 @@ See [SKILL.md](skills/ios-bug-priority-tree/SKILL.md) for the full tree, includi
 
 ## Requirements
 
-Xcode command line tools (`xcrun simctl`), `sips`, and an MCP server that can drive a specific simulator. The tool names quoted in the skill are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s; swap in your own server's equivalents. `ffmpeg`, `idb`, `leaks` and `footprint` are only needed when a hunt escalates into motion, timing or memory work.
+Xcode command line tools (`xcrun simctl`), `sips`, and an MCP server that can drive a specific simulator. The tool names quoted in the skill are [ios-simulator-mcp](https://github.com/joshuayoes/ios-simulator-mcp)'s; swap in your own server's equivalents. `ffmpeg`, `idb`, `leaks` and `footprint` are only needed when a hunt escalates into motion, timing or memory work. Hunts on the iPhone Duo also need [devicehubctl](https://github.com/ChrisThoma/devicehubctl).
 
 On Codex, subagents need the `multi_agent` feature, which is stable and on by default (`codex features list | grep multi_agent`). On Claude Code, no extra setup is needed. The `agents/openai.yaml` in the skill folder supplies Codex's display name and default prompt; Claude Code ignores it.
 
