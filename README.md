@@ -52,7 +52,7 @@ Paste after `/goal` in Claude Code. It sets the target count and turn limit, the
 10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
 Target: iPhone. One Target per ledger; never widen mid-hunt.
 First: load ios-bug-priority-tree; compose waves, prompts, budgets, map, coverage per it.
-Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one cycle (apply results, one dispatch), not one completion.
+Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one wake (apply results, one dispatch); bump once, first.
 Simulators: reuse, never duplicate. iPhone = SE-class SIM-A + large SIM-B; iPad = two sizes; named BugHunt-<App>-<Target>-A/-B. Each sim agent gets ONE recorded UDID. Assert/restore the skill baseline before wave 1 and after each worker.
 APPMAP.md: structural only per skill; coverage/issue refs and build revisions go to ISSUES; keep dead leads, traps, fixtures.
 HUNT.md: read before wave 1. Finders get Everyone + matching (forward); fixers get Fixers (forward); verifiers NEVER get HUNT, hypotheses, fix hashes/history. Never restamp; if stale per skill, say so once.
@@ -63,7 +63,7 @@ Stop and report per skill "When to hunt and when to stop"; 10 is a ceiling, not 
 Protocol:
 1. FIND: one skill wave (one sim finder/free sim + off-sim auditors). Each sim finder: one primary JID, map-read instruction, its coverage row, budget, own track only, <=10 prior lines. Spawn iff `CANDIDATE + CONFIRMED + FIXED-UNVERIFIED < 10 - VERIFIED`; at equality a free sim may take one uncovered core journey.
 2. CONFIRM per skill: independent repro (confirm agent or finder 2/2). Harness/contamination causes -> map tooling caveats.
-3. FIX: one worker/CONFIRMED issue, cheapest first; send description, repro, file pointers, APPMAP, Fixers priors. Worker commits `fix #N: <description>`; delegate smoke test; never patch. 3 stuck turns = BLOCKED/replace.
+3. FIX: one worker/CONFIRMED issue, most severe first; send description, repro, file pointers, APPMAP, Fixers priors. Worker commits `fix #N: <description>`; delegate smoke test; never patch. 3 stuck turns = BLOCKED/replace.
 4. VERIFY: app code committed (ledger/map/HUNT edits may be pending). Fresh verifier gets blind-addendum inputs (one UDID), Target, budget. Exact repro + one named adjacent invariant. Quote verdict. BLOCKED = replace.
 5. Verifier REJECTED = fix failed: CONFIRMED -> refix -> fresh verifier; two = BLOCKED/replace. CONFIRM-stage REJECTED is final.
 Done: `10/10 VERIFIED` + hashes, or turn-40 tally, with category mix, false positives + causes, blocked root groups, coverage totals, residuals. Then append rejection causes, tar pits, verifier conditions to HUNT.md.
@@ -87,7 +87,7 @@ Paste after `/goal` in Claude Code.
 10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
 Target: Duo. One Target per ledger; never widen mid-hunt.
 First: load ios-bug-priority-tree and devicehubctl; compose the hunt per the tree.
-Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one cycle (apply results, one dispatch), not one completion.
+Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one wake (apply results, one dispatch); bump once, first.
 Simulators: reuse, never duplicate. Duos: BugHunt-<App>-Duo-A (closed) and -B (open). Each sim agent: ONE recorded UDID, loads devicehubctl (not idb/ui_*). Assert/restore skill baseline + pose/rotation before wave 1 and after each worker.
 Pose is a condition, not a JID. Test core journeys closed, open, and a pose change mid-task (state survives); Split View once; split failure = blocked. Track C each wave, new partition: fold-rebuilt modes/dialogs/scroll, then run endings. Tier 1 (requested): AX-XXXL on outer, partial, rotated open; stop rule needs it dry.
 APPMAP.md: structural only per skill; keep dead leads, traps, fixtures.
@@ -98,7 +98,7 @@ Count distinct roots per skill: S1-S3, at most 2 S4.
 Protocol:
 1. FIND: one skill wave (one sim finder/free sim + off-sim auditors). Each sim finder: one primary JID + poses, map-read instruction, coverage row, own track, <=10 prior lines. Spawn iff `CANDIDATE + CONFIRMED + FIXED-UNVERIFIED < 10 - VERIFIED`; at equality a free sim may take one uncovered core journey.
 2. CONFIRM per skill: independent repro (confirm agent or finder 2/2). Harness/contamination causes -> map tooling caveats.
-3. FIX: one worker/CONFIRMED issue, cheapest first; send description, repro, file pointers, APPMAP. Worker commits `fix #N: <description>`, smoke-tests in the failing pose; never patch. 3 stuck turns = BLOCKED/replace.
+3. FIX: one worker/CONFIRMED issue, most severe first; send description, repro, file pointers, APPMAP. Worker commits `fix #N: <description>`, smoke-tests in the failing pose; never patch. 3 stuck turns = BLOCKED/replace.
 4. VERIFY: app code committed (ledger/map/HUNT edits may be pending). Fresh verifier gets blind-addendum inputs (one UDID), Target. Exact repro + a fold across the fixed state. Quote verdict. BLOCKED = replace.
 5. Verifier REJECTED = fix failed: CONFIRMED -> refix -> fresh verifier; two = BLOCKED/replace. CONFIRM-stage REJECTED is final.
 Done: `10/10 VERIFIED` + hashes, or tally + stop reason, with false positives + causes, blocked groups, coverage by pose. Then append rejection causes, tar pits, verifier conditions to HUNT.md.
