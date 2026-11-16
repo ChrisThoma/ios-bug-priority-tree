@@ -34,7 +34,7 @@ The skill is a companion to a "find N distinct issues" goal loop. The loop owns 
 In Claude Code, start a goal along these lines:
 
 ```text
-/goal 10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
+/goal 10 distinct app issues fixed and independently verified, or an honest final tally once the skill's stop rule ends finding (a Tier 1 wave confirms no S1/S2) or at turn 40.
 Target: iPhone. First: load ios-bug-priority-tree; compose waves, prompts, budgets, map, coverage per it.
 ```
 
@@ -49,24 +49,24 @@ Paste after `/goal` in Claude Code. It sets the target count and turn limit, the
 - Simulators: two per target, an SE-class iPhone and a large one, or two iPad sizes.
 
 ```text
-10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
+10 distinct app issues fixed and independently verified, or an honest final tally once the skill's stop rule ends finding (a Tier 1 wave confirms no S1/S2) or at turn 40.
 Target: iPhone. One Target per ledger; never widen mid-hunt.
 First: load ios-bug-priority-tree; compose waves, prompts, budgets, map, coverage per it.
 Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = a wake that dispatches work; bump once, first; a results-only wake doesn't bump.
 Simulators: reuse, never duplicate. iPhone = SE-class SIM-A + large SIM-B; iPad = two sizes; named BugHunt-<App>-<Target>-A/-B. Each sim agent gets ONE recorded UDID. Assert/restore the skill baseline before wave 1 and after each worker.
 APPMAP.md: structural only per skill; coverage/issue refs and build revisions go to ISSUES; keep dead leads, traps, fixtures.
 HUNT.md: read before wave 1. Finders get Everyone + matching (forward); fixers get Fixers (forward); verifiers NEVER get HUNT, hypotheses, fix hashes/history. Never restamp; if stale per skill, say so once.
-Agents: set model on every dispatch: sonnet; opus after a rejected fix or 3 stuck turns. You never write app code, drive sims, read source/diffs/build logs, or build; fixers build+test (own derivedData), commit, install, report diff summary + pass/fail. Every prompt, fixers too, carries the skill budget block; else reject. Evidence dir: git-ignored `.qa/hunt-<date>/`. Caps: finders 12 min, verifiers 8, fixers 25; use what they returned. While a fixer/verifier runs and the spawn rule holds, keep the free sim on the next uncovered journey. One dispatch delta, then stop; wake on completions only; no heartbeat under 30 min, agent listing, or waiting narration.
+Agents: set model on every dispatch: sonnet; opus after a rejected fix or 3 stuck turns. You never write app code, drive sims, read source/diffs/build logs, or build; fixers build+test (own derivedData), commit, install, report diff summary + pass/fail. Every prompt, fixers too, carries the skill budget block; else reject. Evidence dir: git-ignored `.qa/hunt-<date>/`. Caps: finders 12 min, verifiers 8, fixers 25; use what they returned; at cap+5 min enforce per skill. While a fixer/verifier runs and the spawn rule holds, keep the free sim on the next uncovered journey. One dispatch delta, then stop; wake on completions or a cap+5 check; no other heartbeat under 30 min, agent listing, or waiting narration.
 ISSUES.md: header `Turn N of 40 · <Target>`, then a `Slot | Name | UDID | Device` sims table. One labelled pipe line per issue: `#N | JID | description: | expected basis: | repro: | ratio: | impact: | evidence: | S1-S4 | track: | duplicate/root: | fix: | commit: | status:`, verdict first in status (CANDIDATE/CONFIRMED/FIXED-UNVERIFIED/VERIFIED/REJECTED/BLOCKED); duplicate/over-cap S4 = REJECTED + reason. No `|` in prose, no markdown table. Edit changed rows in place; never re-read the ledger. Then `## Coverage`: one `J<n> | coverage: | tested: | next:` row per journey, all `discovered` at turn 1, never a `status:` label. Then `## Builds`: `<slot> | build: | revision:` per install. No chronology/interim tallies.
 Count distinct-root defects per skill: S1-S3, at most 2 S4.
-Stop and report per skill "When to hunt and when to stop"; 10 is a ceiling, not a quota.
+Stop and report per skill "When to hunt and when to stop" (a Tier 1 wave that confirms no S1/S2 ends finding); 10 is a ceiling, not a quota.
 Protocol:
 1. FIND: one skill wave (one sim finder/free sim + off-sim auditors). Each sim finder: one primary JID, map-read instruction, its coverage row, budget, own track only, <=10 prior lines. Spawn iff `CANDIDATE + CONFIRMED + FIXED-UNVERIFIED < 10 - VERIFIED`; at equality a free sim may take one uncovered core journey.
 2. CONFIRM per skill: independent repro (confirm agent or finder 2/2). Harness/contamination causes -> map tooling caveats.
 3. FIX: one worker/CONFIRMED issue, most severe first; send description, repro, file pointers, APPMAP, Fixers priors. Worker commits `fix #N: <description>`; delegate smoke test; never patch. 3 stuck turns = BLOCKED/replace.
 4. VERIFY: app code committed (ledger/map/HUNT edits may be pending). Fresh verifier gets blind-addendum inputs (one UDID), Target, budget. Exact repro + one named adjacent invariant. Quote verdict. BLOCKED = replace.
 5. Verifier REJECTED = fix failed: CONFIRMED -> refix -> fresh verifier; two = BLOCKED/replace. CONFIRM-stage REJECTED is final.
-Done: `10/10 VERIFIED` + hashes, or turn-40 tally, with category mix, false positives + causes, blocked root groups, coverage totals, residuals. Then append rejection causes, tar pits, verifier conditions to HUNT.md.
+Done: `10/10 VERIFIED` + hashes, or stop-rule/turn-40 tally, with category mix, false positives + causes, blocked root groups, coverage totals, residuals. Then append rejection causes, tar pits, verifier conditions to HUNT.md.
 ```
 
 </details>
@@ -84,15 +84,15 @@ Paste after `/goal` in Claude Code.
 - Verifies each fix across a fold.
 
 ```text
-10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
+10 distinct app issues fixed and independently verified, or an honest final tally once the skill's stop rule ends finding (a Tier 1 wave confirms no S1/S2) or at turn 40.
 Target: Duo. One Target per ledger; never widen mid-hunt.
 First: load ios-bug-priority-tree and devicehubctl; compose the hunt per the tree.
 Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = a wake that dispatches work; bump once, first; a results-only wake doesn't bump.
 Simulators: reuse, never duplicate. Duos: BugHunt-<App>-Duo-A (closed) and -B (open). Each sim agent: ONE recorded UDID, loads devicehubctl (not idb/ui_*). Assert/restore skill baseline + pose/rotation before wave 1 and after each worker.
-Pose is a condition, not a JID. Test core journeys closed, open, and a pose change mid-task (state survives); Split View once; split failure = blocked. Track C each wave, new partition: fold-rebuilt modes/dialogs/scroll, then run endings. Tier 1 (requested): AX-XXXL on outer, partial, rotated open; stop rule needs it dry.
+Pose is a condition, not a JID. Test core journeys closed, open, and a pose change mid-task (state survives); Split View once; split failure = blocked. Track C each wave, new partition: fold-rebuilt modes/dialogs/scroll, then run endings. Tier 1 (requested): AX-XXXL on outer, partial, rotated open; it is the stop rule's wave.
 APPMAP.md: structural only per skill; keep dead leads, traps, fixtures.
 HUNT.md: read before wave 1. Finders get Everyone + matching (forward); fixers get Fixers (forward); verifiers NEVER get HUNT, hypotheses, fix hashes/history. Never restamp.
-Agents: set model on every dispatch: sonnet; opus after a rejected fix or 3 stuck turns. You never write app code, drive sims, read source/diffs/build logs, or build; fixers build+test (own derivedData), commit, install, report diff + pass/fail. Every prompt, fixers too, carries the skill budget block; else reject. Evidence: git-ignored `.qa/hunt-<date>/`. Caps: finders 12 min, verifiers 8, fixers 25; use what they returned. While a fixer/verifier runs and the spawn rule holds, keep the free sim on the next uncovered journey. One dispatch delta, then stop; wake on completions only; no heartbeat under 30 min, agent listing, or waiting narration.
+Agents: set model on every dispatch: sonnet; opus after a rejected fix or 3 stuck turns. You never write app code, drive sims, read source/diffs/build logs, or build; fixers build+test (own derivedData), commit, install, report diff + pass/fail. Every prompt, fixers too, carries the skill budget block; else reject. Evidence: git-ignored `.qa/hunt-<date>/`. Caps: finders 12 min, verifiers 8, fixers 25; use what they returned; at cap+5 min enforce per skill. While a fixer/verifier runs and the spawn rule holds, keep the free sim on the next uncovered journey. One dispatch delta, then stop; wake on completions or a cap+5 check; no other heartbeat under 30 min, agent listing, or waiting narration.
 ISSUES.md: header `Turn N of 40 · Duo`, then a `Slot | Name | UDID | Pose` sims table. One labelled pipe line per issue: `#N | JID | description: | expected basis: | repro: | ratio: | impact: | evidence: | S1-S4 | track: | duplicate/root: | fix: | commit: | status:`, verdict first in status (CANDIDATE/CONFIRMED/FIXED-UNVERIFIED/VERIFIED/REJECTED/BLOCKED); duplicate/over-cap S4 = REJECTED + reason. Repro names pose. No `|` in prose, no markdown table. Edit rows in place; never re-read the ledger. Then `## Coverage`: one `J<n> | coverage: | tested: | next:` row per journey, all `discovered` at turn 1, never a `status:` label. Then `## Builds`: `<slot> | build: | revision:` per install. No chronology/interim tallies.
 Count distinct roots per skill: S1-S3, at most 2 S4.
 Protocol:
