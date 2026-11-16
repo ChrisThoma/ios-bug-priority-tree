@@ -52,7 +52,7 @@ Paste after `/goal` in Claude Code. It sets the target count and turn limit, the
 10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
 Target: iPhone. One Target per ledger; never widen mid-hunt.
 First: load ios-bug-priority-tree; compose waves, prompts, budgets, map, coverage per it.
-Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one wake (apply results, one dispatch); bump once, first.
+Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = a wake that dispatches work; bump once, first; a results-only wake doesn't bump.
 Simulators: reuse, never duplicate. iPhone = SE-class SIM-A + large SIM-B; iPad = two sizes; named BugHunt-<App>-<Target>-A/-B. Each sim agent gets ONE recorded UDID. Assert/restore the skill baseline before wave 1 and after each worker.
 APPMAP.md: structural only per skill; coverage/issue refs and build revisions go to ISSUES; keep dead leads, traps, fixtures.
 HUNT.md: read before wave 1. Finders get Everyone + matching (forward); fixers get Fixers (forward); verifiers NEVER get HUNT, hypotheses, fix hashes/history. Never restamp; if stale per skill, say so once.
@@ -87,7 +87,7 @@ Paste after `/goal` in Claude Code.
 10 distinct app issues fixed and independently verified, or an honest final tally at the skill's stop rule or turn 40.
 Target: Duo. One Target per ledger; never widen mid-hunt.
 First: load ios-bug-priority-tree and devicehubctl; compose the hunt per the tree.
-Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = one wake (apply results, one dispatch); bump once, first.
+Resume: for this Target keep ISSUES statuses/turn/coverage, verify commits, then process FIXED-UNVERIFIED, CONFIRMED, CANDIDATE. Never reconstruct from git. Another Target's ledger -> ISSUES-<target>.md. No match = turn 1. Turn = a wake that dispatches work; bump once, first; a results-only wake doesn't bump.
 Simulators: reuse, never duplicate. Duos: BugHunt-<App>-Duo-A (closed) and -B (open). Each sim agent: ONE recorded UDID, loads devicehubctl (not idb/ui_*). Assert/restore skill baseline + pose/rotation before wave 1 and after each worker.
 Pose is a condition, not a JID. Test core journeys closed, open, and a pose change mid-task (state survives); Split View once; split failure = blocked. Track C each wave, new partition: fold-rebuilt modes/dialogs/scroll, then run endings. Tier 1 (requested): AX-XXXL on outer, partial, rotated open; stop rule needs it dry.
 APPMAP.md: structural only per skill; keep dead leads, traps, fixtures.
